@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Ocean } from './ocean';
 import { Sky } from './sky';
-import { COLORS, FOG_DENSITY } from './palette';
+import { Fish } from './fish';
+import { COLORS, FISH_KEY_DIR, FOG_DENSITY } from './palette';
 import { waveHeight } from './waves';
 
 export const CAMERA_HEIGHT = 1.5;
@@ -23,6 +24,7 @@ export class CyberScene {
   readonly camera: THREE.PerspectiveCamera;
   readonly ocean: Ocean;
   readonly sky: Sky;
+  readonly fish: Fish;
 
   private readonly container: HTMLElement;
   private readonly opts: SceneOptions;
@@ -65,6 +67,26 @@ export class CyberScene {
     this.ocean = new Ocean({ segments: opts.mobile ? 160 : 384 });
     this.scene.add(this.ocean.mesh);
 
+    // One cool key light plus a soft sky/water hemisphere. Intensities are
+    // kept low enough that the lit body stays under the bloom threshold.
+    const key = new THREE.DirectionalLight(COLORS.light, 0.9);
+    key.position.copy(FISH_KEY_DIR).multiplyScalar(50).add(FISH_CENTRE);
+    key.target.position.copy(FISH_CENTRE);
+    this.scene.add(key, key.target);
+    const hemi = new THREE.HemisphereLight(COLORS.hemiSky, COLORS.hemiGround, 0.9);
+    this.scene.add(hemi);
+    // Faint fill from below so the belly is not pitch black, tinted by the water glow.
+    const fill = new THREE.PointLight(COLORS.accent, 1.5, 30, 1.6);
+    fill.position.set(0, -2, 0);
+    this.fillLight = fill;
+    this.scene.add(fill);
+
+    this.fish = new Fish();
+    this.fish.group.position.copy(FISH_CENTRE);
+    this.fish.group.rotation.y = 0.35;
+    if (opts.reducedMotion) this.fish.setUndulation(0);
+    this.scene.add(this.fish.group);
+
     // Start the clock a little in so the first frame is not a flat sea.
     this.time = 12;
 
@@ -76,6 +98,7 @@ export class CyberScene {
   }
 
   private resizeObserver: ResizeObserver;
+  private fillLight!: THREE.PointLight;
 
   start(): void {
     if (this.running) return;
@@ -135,6 +158,10 @@ export class CyberScene {
     this.cameraY += (targetY - this.cameraY) * k;
     this.camera.position.y = this.cameraY;
     this.camera.lookAt(this.lookTarget);
+
+    this.fish.update(this.time);
+    this.fishPosition.copy(this.fish.group.position);
+    this.fillLight.position.set(this.fishPosition.x, this.fishPosition.y - 3, this.fishPosition.z);
 
     this.ocean.update(this.time, this.fishPosition);
     this.sky.follow(this.camera);

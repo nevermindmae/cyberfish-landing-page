@@ -20,7 +20,13 @@ export const COLORS = {
   eye: new THREE.Color('#0a1222'),
   /** Cool key light. */
   light: new THREE.Color('#b8ccff'),
+  /** Hemisphere lighting for the fish. Not brand tokens; lighting only. */
+  hemiSky: new THREE.Color('#5a6f9a'),
+  hemiGround: new THREE.Color('#1c2a52'),
 };
+
+/** Direction toward the fish key light: above, slightly camera-side. */
+export const FISH_KEY_DIR = new THREE.Vector3(0.35, 0.85, 0.45).normalize();
 
 /** Exponential-squared fog density shared by the ocean shader and scene.fog. */
 export const FOG_DENSITY = 0.02;
