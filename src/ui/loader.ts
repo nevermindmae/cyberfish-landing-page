@@ -4,7 +4,8 @@
  * The markup and styles live in index.html so the overlay paints before any
  * module script is fetched. This class only drives it: callers report real
  * progress via setProgress(); the shown value eases toward it so it never
- * jumps. At 100% the mark docks toward the nav and two enter buttons appear;
+ * jumps. Progress is shown by the mark filling and the wordmark typing out.
+ * At 100% the mark docks toward the nav and two enter buttons appear;
  * the overlay fades once the visitor picks sound on or off.
  */
 
@@ -50,8 +51,6 @@ export class Loader {
   private readonly edge = el<SVGGElement>('edge');
   private readonly edgeBlur = el<SVGRectElement>('edgeblur');
   private readonly edgeLine = el<SVGRectElement>('edgeline');
-  private readonly pct = el<HTMLElement>('pct');
-  private readonly label = el<HTMLElement>('label');
   private readonly typed = el<HTMLElement>('typed');
   private readonly enterSound = el<HTMLButtonElement>('enter-sound');
   private readonly enterMute = el<HTMLButtonElement>('enter-mute');
@@ -104,8 +103,6 @@ export class Loader {
     this.halo.setAttribute('opacity', (0.9 * fade).toFixed(3));
     this.edge.setAttribute('opacity', fade.toFixed(3));
 
-    this.pct.textContent = `${Math.round(p * 100)}%`;
-
     // floor() so the word only completes at exactly 100%; textContent is only
     // touched when the letter count changes to avoid needless relayout.
     const typed = WORDMARK.slice(0, Math.floor(p * WORDMARK.length));
@@ -114,12 +111,10 @@ export class Loader {
 
   private finish(): void {
     this.finished = true;
-    this.label.textContent = 'Ready';
-    this.label.style.color = '#2EA8FF';
 
     // `docked` shrinks the mark toward the nav position and reveals the enter
     // buttons (styles in index.html). Under reduced motion the mark stays put
-    // and the buttons simply replace the status row.
+    // and the buttons simply fade in below it.
     window.setTimeout(() => {
       this.root.classList.add('docked');
       const focusDelay = this.reducedMotion ? 0 : ENTER_READY_MS;

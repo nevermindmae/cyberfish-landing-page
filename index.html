@@ -111,24 +111,11 @@
           opacity: 0;
         }
       }
-      #loader .row {
-        width: min(320px, 60vw);
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        transition: opacity 300ms;
-      }
-      #loader.docked .row {
-        opacity: 0;
-      }
-      /* Status row and enter buttons share one slot under the mark. The enter
-         stack is taller than the row; its top edge stays at the slot top. */
+      /* Slot under the wordmark that the enter buttons rise into once docked.
+         Progress itself is shown by the mark filling and the wordmark typing. */
       #loader .foot {
         display: grid;
         place-items: center;
-      }
-      #loader .foot > * {
-        grid-area: 1 / 1;
       }
       /* Enter buttons. Hidden until the mark has docked, then rise to sit under it. */
       #loader .enter {
@@ -213,18 +200,6 @@
           transform: none;
         }
       }
-      #loader .lbl {
-        font-size: 12px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #4a5368;
-        font-weight: 500;
-      }
-      #loader .pct {
-        font-size: 12px;
-        letter-spacing: 0.14em;
-        color: #8a94ab;
-      }
     </style>
   </head>
   <body>
@@ -290,10 +265,6 @@
         <span class="typed" id="typed" aria-hidden="true"></span>
       </p>
       <div class="foot">
-        <div class="row" role="status" aria-live="polite">
-          <div class="lbl" id="label">Loading content</div>
-          <div class="pct" id="pct">0%</div>
-        </div>
         <div class="enter" id="enter">
           <button class="btn" id="enter-sound" type="button">Enter with sound</button>
           <button class="btn quiet" id="enter-mute" type="button">Enter without sound</button>
