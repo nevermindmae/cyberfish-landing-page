@@ -37,9 +37,9 @@ def link(obj):
 
 # ------------------------------------------------------------------ body def
 Y_NOSE = 6.2; L = 4.0
-H  = [(0, 0.0), (0.012, 0.11), (0.04, 0.22), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
+H  = [(0, 0.0), (0.014, 0.13), (0.04, 0.23), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
       (0.45, 0.70), (0.6, 0.58), (0.75, 0.42), (0.9, 0.27), (1.0, 0.21)]
-Wd = [(0, 0.0), (0.012, 0.20), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
+Wd = [(0, 0.0), (0.014, 0.22), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
       (0.45, 0.48), (0.6, 0.38), (0.75, 0.26), (0.9, 0.15), (1.0, 0.09)]
 ZC = [(0, -0.20), (0.04, -0.14), (0.08, -0.09), (0.15, -0.03), (0.4, 0.0), (1.0, 0.06)]
 
@@ -50,7 +50,12 @@ def surf(t, ang):
     k = 0.5 * (1 - c)                    # 0 belly .. 1 back
     wx = w * (1.0 - 0.28 * k * k)        # back narrower than belly
     hz = h * (0.92 if c > 0 else 1.0)
-    return Vector((wx * s, Y_NOSE - L * t, zc - hz * c))
+    # robotic muzzle: the cross-section blends from a superellipse (boxy, n=3.6) at the
+    # nose to a plain ellipse (n=2) by t = 0.24, so the head reads as a machined housing
+    f = min(max(t / 0.24, 0.0), 1.0); f = f * f * (3 - 2 * f)
+    n = 3.6 * (1 - f) + 2.0 * f; e = 2.0 / n
+    sx = math.copysign(abs(s) ** e, s); cz = math.copysign(abs(c) ** e, c)
+    return Vector((wx * sx, Y_NOSE - L * t, zc - hz * cz))
 
 def surf_normal(t, ang):
     e = 1e-3
@@ -136,14 +141,18 @@ def mesh_from_grid(name, grid, uv_fn, close_u=False, close_v=False, caps=(), xfo
             ju = j + 1 if close_u else j2; iu = i + 1 if close_v else i2
             for l, uv in zip(f.loops, [uv_fn(i, j), uv_fn(i, ju), uv_fn(iu, ju), uv_fn(iu, j)]):
                 l[uv_layer].uv = uv
-    for (cap_pt, row_idx, cap_uv) in caps:
+    for cap in caps:
+        cap_pt, row_idx, cap_uv = cap[:3]
+        rim_uv = cap[3] if len(cap) > 3 else None          # optional: own UV island for the cap (rim uv per column j)
         cv = bm.verts.new(xform(cap_pt)); row = verts[row_idx]
         for j in range(nj):
             j2 = (j + 1) % nj
             if row_idx == 0:
-                vs = [cv, row[j2], row[j]]; uvs = [cap_uv, uv_fn(0, j + 1), uv_fn(0, j)]
+                vs = [cv, row[j2], row[j]]
+                uvs = [cap_uv, rim_uv(j + 1), rim_uv(j)] if rim_uv else [cap_uv, uv_fn(0, j + 1), uv_fn(0, j)]
             else:
-                vs = [cv, row[j], row[j2]]; uvs = [cap_uv, uv_fn(row_idx, j), uv_fn(row_idx, j + 1)]
+                vs = [cv, row[j], row[j2]]
+                uvs = [cap_uv, rim_uv(j), rim_uv(j + 1)] if rim_uv else [cap_uv, uv_fn(row_idx, j), uv_fn(row_idx, j + 1)]
             try:
                 f = bm.faces.new(vs)
             except ValueError:
@@ -215,14 +224,20 @@ if coll is None:
 
 # ------------------------------------------------------------------ body mesh
 NT, NA = 64, 40
-T0 = 0.008
+T0 = 0.014
 def t_of(i): return T0 + (1 - T0) * (i / NT) ** 1.15
 grid = [[surf(t_of(i), -math.pi + 2 * math.pi * j / NA) for j in range(NA)] for i in range(NT + 1)]
-body_uv = lambda i, j: (j / NA, t_of(i))
-nose = Vector((0, Y_NOSE, spline(ZC, 0)))
+# UV layout: the bottom strip (v < PLATE_H) is a separate island for the flat front plate (a disc of
+# radius PLATE_R around (0.5, PLATE_C)); the body rings use v = PLATE_H + (1 - PLATE_H) * t.
+PLATE_H, PLATE_C, PLATE_R = 0.12, 0.06, 0.055
+body_uv = lambda i, j: (j / NA, PLATE_H + (1 - PLATE_H) * t_of(i))
+def plate_rim_uv(j):
+    ang = -math.pi + 2 * math.pi * j / NA
+    return (0.5 + PLATE_R * math.sin(ang), PLATE_C - PLATE_R * math.cos(ang))
+nose = Vector((0, Y_NOSE - L * (T0 - 0.003), spline(ZC, T0)))   # flat, very slightly dished front plate
 tail_end = Vector((0, Y_NOSE - L, spline(ZC, 1)))
 body_me = mesh_from_grid("CF_Body", grid, body_uv, close_u=True,
-                         caps=[(nose, 0, (0.5, 0.0)), (tail_end, NT, (0.5, 1.0))], xform=pose_spine)
+                         caps=[(nose, 0, (0.5, PLATE_C), plate_rim_uv), (tail_end, NT, (0.5, 1.0))], xform=pose_spine)
 body = bpy.data.objects.new("CF_Body", body_me); link(body)
 
 # ------------------------------------------------------------------ fins
