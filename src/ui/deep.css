@@ -38,6 +38,13 @@ html[data-deep] .deep-block:nth-child(2) {
   transition-delay: 2600ms;
 }
 
+/* Back up from a chapter below (html[data-revisit]): the picture is
+   already there, so both blocks come up together, straight away. */
+html[data-deep][data-revisit]:not([data-descending]):not([data-safety]):not([data-surfacing])
+  .deep-block {
+  transition-delay: 300ms;
+}
+
 html[data-deep][data-surfacing] .deep-block {
   opacity: 0;
   transform: none;
@@ -200,6 +207,12 @@ html[data-deep] .descend {
 /* In the safety chapter it is back sooner: the picture is already there. */
 html[data-deep][data-safety] .descend {
   transition-delay: 1200ms, 1200ms, 0ms;
+}
+
+/* And back in the deep from below it comes up with the copy. */
+html[data-deep][data-revisit]:not([data-descending]):not([data-safety]):not([data-surfacing])
+  .descend {
+  transition-delay: 300ms, 300ms, 0ms;
 }
 
 html[data-deep][data-surfacing] .descend,

@@ -9,7 +9,7 @@ import './ui/safety.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { Callout } from './ui/callout';
-import { CyberScene } from './scene';
+import { CyberScene, type Chapter } from './scene';
 
 const root = document.getElementById('scene');
 if (!root) throw new Error('#scene container missing');
@@ -141,7 +141,11 @@ const changing = (): boolean =>
 const reflectChapter = (): void => {
   delete html.dataset.safety;
   delete html.dataset.floor;
-  if (scene.chapter !== 'deep') html.dataset[scene.chapter] = '';
+  const chapter: Chapter = scene.chapter;
+  if (chapter !== 'deep') html.dataset[chapter] = '';
+  // Back in the deep after a visit below: the picture is already there,
+  // so its copy comes up at once rather than in the first-arrival stagger.
+  else html.dataset.revisit = '';
 };
 
 // One chapter down: "Continue", or a scroll down.
@@ -211,6 +215,7 @@ if (backTop) {
     delete html.dataset.deep;
     delete html.dataset.safety;
     delete html.dataset.floor;
+    delete html.dataset.revisit;
     delete html.dataset.surfacing;
     if (deploy) deploy.disabled = false;
   });
