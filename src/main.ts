@@ -33,16 +33,18 @@ toggle?.addEventListener('click', () => {
   const on = !sfx.enabled;
   if (on) sfx.unlock();
   sfx.setEnabled(on);
-  if (on) sfx.play('confirm1');
+  // Confirmation first, then the music comes back (if the page is entered).
+  if (on) void sfx.play('confirm1').then(() => sfx.resumeMusic());
 });
 
 // "Enter with sound": unlock inside the gesture itself (Safari needs the
 // call stack) and play the confirmation right away, not after the loader's
 // fade.
+// The background track follows straight on from the confirmation.
 document.getElementById('enter-sound')?.addEventListener('click', () => {
   sfx.unlock();
   sfx.setEnabled(true);
-  sfx.play('confirm2');
+  void sfx.play('confirm2').then(() => sfx.startMusic());
 });
 // pointerdown is already a user activation and lands ~100 ms before click:
 // start the context and decode the buffers then, so the click plays at once.
@@ -89,9 +91,12 @@ scene.start();
 requestAnimationFrame(() => loader.setProgress(1));
 
 // The visitor's enter choice (sound itself was handled in the click above).
+// Entering muted still marks the music as wanted, so switching sound on
+// later brings it in after that confirmation.
 loader.done.then(({ sound }) => {
   document.documentElement.dataset.entered = '';
   sfx.setEnabled(sound);
+  if (!sound) sfx.startMusic();
 });
 
 // "Deploy The Decoy?": dive under. The HUD sinks away, the camera goes
