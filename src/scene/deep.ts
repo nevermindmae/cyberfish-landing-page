@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import raysVert from './shaders/rays.vert.glsl?raw';
 import raysFrag from './shaders/rays.frag.glsl?raw';
 import motesVert from './shaders/motes.vert.glsl?raw';
@@ -13,7 +14,9 @@ import motesFrag from './shaders/motes.frag.glsl?raw';
  *
  * Shafts are additive planes at a few depths (so the mouse parallax gives
  * them volume); motes are one Points cloud whose motion is computed in the
- * vertex shader.
+ * vertex shader. The DeKoi unit (public/models/dekoi.glb) hangs on the
+ * right, tipped toward the lens, and opens its lid once the chapter has
+ * surfaced.
  */
 
 export interface DeepOptions {
@@ -56,12 +59,45 @@ const MOTE_COUNT_MOBILE = 300;
 const MOTE_DEPTH = [2, 46] as const;
 const MOTE_HALF_HEIGHT = 12;
 
+/**
+ * The unit: real size is 9.4 cm, so it is scaled up to read at this
+ * distance (about a third of the frame height). Landscape puts it on the
+ * right; portrait centres it low. Tipped so the lid faces the lens, turned
+ * so the long axis runs diagonally, then a slow drift on top.
+ */
+const DEVICE_DISTANCE = 6;
+const DEVICE_SCALE = 7.5;
+/** Sits a little low: the lid lifts up and toward the lens when it opens. */
+const DEVICE_POS_LANDSCAPE = new THREE.Vector3(1.3, -0.3, -DEVICE_DISTANCE);
+const DEVICE_POS_PORTRAIT = new THREE.Vector3(0, -0.65, -DEVICE_DISTANCE);
+/**
+ * The GLB's emissives are set for a bloom threshold around 1.0 with a small
+ * radius; ours is wide and strong, so cap them here or the mark smears into
+ * a white plate.
+ */
+const DEVICE_EMISSIVE_MAX = 3.5;
+const DEVICE_TILT = 0.95;
+const DEVICE_TURN = -0.55;
+/** Model height is 3 cm with the base at y = 0: pivot about the middle. */
+const DEVICE_CENTRE_Y = -0.015;
+const LID_CLIP = 'DK_LidOpen';
+/** Seconds after the hand-off before the lid lifts (the fade-in is ~3 s). */
+const LID_OPEN_AT = 3.4;
+
 export class Deep {
   readonly root = new THREE.Group();
 
   private readonly rayMaterials: THREE.ShaderMaterial[] = [];
   private readonly moteMaterial: THREE.ShaderMaterial;
   private readonly geometries: THREE.BufferGeometry[] = [];
+
+  /** Device rig: `drift` carries the float, `tilt` and `turn` the pose. */
+  private readonly drift = new THREE.Group();
+  private readonly tilt = new THREE.Group();
+  private device: THREE.Object3D | null = null;
+  private mixer: THREE.AnimationMixer | null = null;
+  private lid: THREE.AnimationAction | null = null;
+  private lidOpened = false;
 
   constructor(opts: DeepOptions) {
     const layers = opts.mobile ? RAY_LAYERS.slice(0, 2) : RAY_LAYERS;
@@ -90,17 +126,109 @@ export class Deep {
     motes.frustumCulled = false;
     motes.renderOrder = 2;
     this.root.add(motes);
+
+    // Device rig and its lights. The shaft and mote shaders ignore lights,
+    // so these are for the unit alone: a cool key from above on the lens
+    // side, a blue rim from behind, and a faint fill so the black case has
+    // some form in its shadows.
+    this.drift.position.copy(DEVICE_POS_LANDSCAPE);
+    this.tilt.rotation.x = DEVICE_TILT;
+    this.drift.add(this.tilt);
+    this.root.add(this.drift);
+    const key = new THREE.DirectionalLight('#dbe8ff', 1.0);
+    key.position.set(3, 7, 4).add(DEVICE_POS_LANDSCAPE);
+    key.target = this.drift;
+    const rim = new THREE.DirectionalLight('#2ea8ff', 2.0);
+    rim.position.set(-4, 2, -8).add(DEVICE_POS_LANDSCAPE);
+    rim.target = this.drift;
+    const fill = new THREE.HemisphereLight('#3b5a9a', '#02050c', 0.4);
+    this.root.add(key, rim, fill);
   }
 
-  update(time: number): void {
+  /**
+   * Hang the loaded unit on the rig, hidden and closed. The caller shows it
+   * with reveal() once its shaders are compiled; the lid opens in update().
+   */
+  setDevice(gltf: GLTF): void {
+    if (this.device) return;
+    const model = gltf.scene;
+    model.position.y = DEVICE_CENTRE_Y;
+    model.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        // The deep's fog is tuned for the water, not for a thing 6 m away.
+        m.fog = false;
+        if (m instanceof THREE.MeshStandardMaterial) {
+          m.emissiveIntensity = Math.min(m.emissiveIntensity, DEVICE_EMISSIVE_MAX);
+          // Flat polished metal (port housings, shield) catches the key as
+          // a solid white face; a little roughness turns that into a sheen.
+          if (m.metalness > 0.5) m.roughness = Math.max(m.roughness, 0.5);
+        }
+      }
+    });
+    const turn = new THREE.Group();
+    turn.rotation.y = DEVICE_TURN;
+    turn.scale.setScalar(DEVICE_SCALE);
+    turn.visible = false;
+    turn.add(model);
+    this.tilt.add(turn);
+    this.device = model;
+
+    const clip = THREE.AnimationClip.findByName(gltf.animations, LID_CLIP);
+    if (clip) {
+      this.mixer = new THREE.AnimationMixer(model);
+      const action = this.mixer.clipAction(clip);
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      // Write the closed pose now (the model may arrive open from a
+      // previous visit), then hold until it is time.
+      action.play();
+      this.mixer.update(0);
+      action.paused = true;
+      this.lid = action;
+    }
+  }
+
+  /** Show the unit (after its programs are compiled). */
+  reveal(): void {
+    if (this.device?.parent) this.device.parent.visible = true;
+  }
+
+  /**
+   * @param time    scene clock (drives the shaders and the drift)
+   * @param dt      frame delta
+   * @param since   seconds since the hand-off into the deep
+   * @param aspect  camera aspect, for the device's placement
+   */
+  update(time: number, dt: number, since: number, aspect: number): void {
     for (const m of this.rayMaterials) m.uniforms.uTime.value = time;
     this.moteMaterial.uniforms.uTime.value = time;
+
+    // The unit floats: a slow bob and the gentlest roll and nod.
+    const at = aspect < 1 ? DEVICE_POS_PORTRAIT : DEVICE_POS_LANDSCAPE;
+    this.drift.position.set(at.x, at.y + Math.sin(time * 0.45) * 0.07, at.z);
+    this.drift.rotation.z = Math.sin(time * 0.31) * 0.05;
+    this.drift.rotation.x = Math.sin(time * 0.23 + 1.7) * 0.035;
+
+    if (this.lid && !this.lidOpened && since >= LID_OPEN_AT) {
+      this.lidOpened = true;
+      this.lid.paused = false;
+    }
+    this.mixer?.update(dt);
   }
 
   dispose(): void {
     for (const m of this.rayMaterials) m.dispose();
     this.moteMaterial.dispose();
     for (const g of this.geometries) g.dispose();
+    this.mixer?.stopAllAction();
+    this.device?.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) m.dispose();
+    });
   }
 
   private buildRays(layer: RayLayer): THREE.Mesh {

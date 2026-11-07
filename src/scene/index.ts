@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { Post } from './post';
 import { Fish, type ProgressCallback } from './fish';
 import { Sky } from './sky';
@@ -72,6 +73,8 @@ const DIVE_DURATION_STILL = 1.4;
  */
 const DEEP_BG = '#02050c';
 const DEEP_FADE_IN = 3.2;
+/** The DeKoi unit shown in the deep; fetched once the dive begins. */
+const DEVICE_URL = '/models/dekoi.glb';
 const DEEP_PARALLAX_SHIFT = new THREE.Vector2(1.4, 0.8);
 const DEEP_PARALLAX_TILT = 0.05;
 /** Back to the top: the deep goes dark, then the sea returns out of black. */
@@ -174,6 +177,8 @@ export class CyberScene {
   /** Leaving the deep: its fade to black, then the sea's fade back in. */
   private surfacing: { t: number; resolve: () => void } | null = null;
   private risingT = -1;
+  /** The unit's GLB, loaded once and reused across visits to the deep. */
+  private device: Promise<GLTF | null> | null = null;
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
   private fishLights: Array<{ light: THREE.Light; intensity: number }> = [];
   /** Dev: slow the dive down (1 = real time) to inspect the transition. */
@@ -301,6 +306,8 @@ export class CyberScene {
    */
   dive({ onSplash }: DiveOptions = {}): Promise<void> {
     if (this.diving || this.deep) return Promise.resolve();
+    // The unit is wanted a few seconds from now; start fetching it.
+    this.loadDevice();
     return new Promise((resolve) => {
       const hole = new THREE.Vector3(
         CAMERA_POS.x + DIVE_HOLE.x,
@@ -325,6 +332,22 @@ export class CyberScene {
         resolve,
       };
     });
+  }
+
+  /** Fetch the DeKoi unit once; resolves null (and logs) if it fails. */
+  private loadDevice(): Promise<GLTF | null> {
+    this.device ??= new Promise((resolve) => {
+      new GLTFLoader().load(
+        DEVICE_URL,
+        (gltf) => resolve(gltf),
+        undefined,
+        (err) => {
+          console.error('DeKoi model failed to load', err);
+          resolve(null);
+        },
+      );
+    });
+    return this.device;
   }
 
   /**
@@ -580,13 +603,23 @@ export class CyberScene {
     this.scene.add(deep.root);
     this.deep = deep;
     this.deepT = 0;
+    void this.loadDevice().then(async (gltf) => {
+      // Only if this visit is still the current one.
+      if (!gltf || this.deep !== deep) return;
+      deep.setDevice(gltf);
+      // Compile its programs off the frame so the fade-in does not hitch.
+      await this.renderer.compileAsync(deep.root, this.camera, this.scene);
+      if (this.deep === deep) deep.reveal();
+    });
+    // The sky environment is far too bright for metal 6 m under the sea.
+    this.scene.environmentIntensity = 0.12;
     this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
   }
 
   /** Camera and fade-in for the chapter below the surface. */
   private updateDeep(deep: Deep, dt: number): void {
     this.deepT += dt;
-    deep.update(this.time);
+    deep.update(this.time, dt, this.deepT, this.camera.aspect);
 
     // Slower, wider parallax than above: the shaft layers give it depth.
     const kp = 1 - Math.exp(-dt * 1.8);
@@ -645,6 +678,7 @@ export class CyberScene {
     fog.near = WATER_FOG_NEAR;
     fog.far = WATER_FOG_FAR;
     this.renderer.setClearColor(COLORS.bg, 1);
+    this.scene.environmentIntensity = 0.6;
 
     // update() puts the camera back at its rest; fade the sea in from here.
     this.risingT = 0;
