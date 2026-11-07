@@ -14,6 +14,11 @@ const X1 = 1650;
 const W = X1 - X0;
 
 const EASE = 0.08;
+/**
+ * Minimum time from navigation start to 100%. Real progress still drives the
+ * bar, but it is paced so a fast (or local) load still reads as a load.
+ */
+const MIN_LOAD_MS = 2000;
 const DOCK_DELAY_MS = 500;
 /** Buttons' transition delay plus duration, see `.enter` in index.html. */
 const ENTER_READY_MS = 1000 + 600;
@@ -67,11 +72,15 @@ export class Loader {
   }
 
   private readonly tick = (): void => {
+    // performance.now() counts from navigation start, so the pacing covers the
+    // HTML and module fetch as well as the work reported via setProgress().
+    const pace = Math.min(1, performance.now() / MIN_LOAD_MS);
+    const target = Math.min(this.target, pace);
     if (this.reducedMotion) {
-      this.shown = this.target;
+      this.shown = target;
     } else {
-      this.shown += (this.target - this.shown) * EASE;
-      if (this.target >= 1 && this.shown > 0.995) this.shown = 1;
+      this.shown += (target - this.shown) * EASE;
+      if (target >= 1 && this.shown > 0.995) this.shown = 1;
     }
     this.render(this.shown);
     if (this.shown < 1) requestAnimationFrame(this.tick);
