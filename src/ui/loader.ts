@@ -5,7 +5,7 @@
  * module script is fetched. This class only drives it: callers report real
  * progress via setProgress(); the shown value eases toward it so it never
  * jumps. Progress is shown by the mark filling and the wordmark typing out.
- * At 100% the mark docks toward the nav and two enter buttons appear;
+ * At 100% the mark lifts to make room and two enter buttons appear below;
  * the overlay fades once the visitor picks sound on or off.
  */
 
@@ -25,8 +25,8 @@ const WORDMARK = 'CYBERFISH';
  * bar, but it is paced so a fast (or local) load still reads as a load.
  */
 const MIN_LOAD_MS = 2000;
-const DOCK_DELAY_MS = 500;
-/** Buttons animate with the dock (`--dock-ms` in index.html), no delay. */
+const READY_DELAY_MS = 500;
+/** Buttons animate with the lift (`--rise-ms` in index.html), no delay. */
 const ENTER_READY_MS = 1600;
 const FADE_MS = 600;
 
@@ -112,16 +112,16 @@ export class Loader {
   private finish(): void {
     this.finished = true;
 
-    // `docked` shrinks the mark toward the nav position and reveals the enter
-    // buttons (styles in index.html). Under reduced motion the mark stays put
-    // and the buttons simply fade in below it.
+    // `ready` lifts the mark and wordmark (same size) and reveals the enter
+    // buttons below (styles in index.html). Under reduced motion nothing moves
+    // and the buttons simply fade in.
     window.setTimeout(() => {
-      this.root.classList.add('docked');
+      this.root.classList.add('ready');
       const focusDelay = this.reducedMotion ? 0 : ENTER_READY_MS;
       window.setTimeout(() => {
         if (!this.entered) this.enterSound.focus({ preventScroll: true });
       }, focusDelay);
-    }, DOCK_DELAY_MS);
+    }, READY_DELAY_MS);
   }
 
   private enter(sound: boolean): void {
