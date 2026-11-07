@@ -33,7 +33,7 @@ export class Ocean {
         uSheenColor: { value: COLORS.waterSheen.clone() },
         uLightDir: { value: LIGHT_DIR.clone() },
         uLightColor: { value: COLORS.light.clone() },
-        uFishPos: { value: new THREE.Vector3(0, 5, -20) },
+        uFishPos: { value: new THREE.Vector3(0, 5, -17) },
         uGlowColor: { value: COLORS.accent.clone() },
         uGlowStrength: { value: 0.16 },
         uGlowRadius: { value: 5.5 },
