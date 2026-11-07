@@ -21,8 +21,12 @@ const FOV_LANDSCAPE = 28;
 const FOV_PORTRAIT = 48;
 /** The fish hovers this far above the camera, so it holds its place in frame. */
 const FISH_ABOVE_CAMERA = 1.2;
-/** Where the fish hovers (y is set per frame from the camera height). */
-export const FOCUS = new THREE.Vector3(0, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
+/**
+ * Where the fish hovers (y is set per frame from the camera height). Offset
+ * left in landscape to leave the right side for the tagline; centred on
+ * portrait screens where the copy sits below it.
+ */
+export const FOCUS = new THREE.Vector3(-1.7, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
 
 export interface SceneOptions {
   reducedMotion: boolean;
@@ -241,6 +245,7 @@ export class CyberScene {
     this.cameraY += (targetY - this.cameraY) * ky;
 
     if (this.fish) {
+      this.fish.centre.x = this.camera.aspect < 1 ? 0 : FOCUS.x;
       this.fish.centre.y = this.cameraY + FISH_ABOVE_CAMERA;
       this.fish.update(this.time, dt, this.pointer);
     }

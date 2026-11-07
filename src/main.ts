@@ -1,6 +1,7 @@
 import './ui/tokens.css';
 import './ui/base.css';
 import './ui/nav.css';
+import './ui/hero.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { CyberScene } from './scene';
@@ -65,6 +66,7 @@ requestAnimationFrame(() => loader.setProgress(1));
 // The visitor's enter choice. The click on the enter button is the user
 // gesture that unlocks audio; "Enter with sound" plays confirmation 2.
 loader.done.then(({ sound }) => {
+  document.documentElement.dataset.entered = '';
   sfx.setEnabled(sound);
   if (sound) sfx.play('confirm2');
 });
