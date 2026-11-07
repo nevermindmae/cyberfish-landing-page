@@ -2,63 +2,61 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /**
- * Straight (un-posed) fish from Blender. Nose at -Z, tail at +Z, dorsal +Y.
- * Swimming is a vertex-shader wave travelling nose -> tail, so the body and
- * fins flex like a real fish instead of a rigid pose sliding around.
- * See assets-src/cyberfish/README.md.
+ * Straight (un-posed) fish from Blender. Nose at -Z, tail at +Z, dorsal +Y,
+ * ~6.75 units long. See assets-src/cyberfish/README.md.
+ *
+ * The fish hovers in place like a koi holding station: the body makes a slow,
+ * shallow sway, the pectoral fins scull, the dorsal / anal / tail fins ripple.
+ * All deformation is done in the vertex shader (one displacement field per
+ * fin type), and normals are corrected from the field's Jacobian.
  */
 const MODEL_URL = '/models/cyberfish_straight.glb';
 
-/** The GLB is ~6.75 units long; this brings it to ~5. */
+/** Brings the ~6.75 unit model to ~5 units. */
 const MODEL_SCALE = 0.75;
 
-// Swim wave (carangiform: head barely moves, tail swings).
-/** Tail beats per second. Slow koi glide. */
-const BEAT_HZ = 0.55;
-/** Body wavelengths along the length (< 1: most of the body is in one bend). */
-const WAVELENGTHS = 0.85;
-/** Lateral amplitude at the tail tip, as a fraction of body length. */
-const TAIL_AMP = 0.065;
-/** Head counter-sway amplitude, fraction of body length. */
-const HEAD_AMP = 0.006;
-/** Tail fin trails the body by this phase (radians). */
-const TAIL_FIN_LAG = 0.7;
+// ---------------------------------------------------------------- hovering
+/** Drift around the anchor point (world units) and the periods (s) driving it. */
+const DRIFT = new THREE.Vector3(0.28, 0.18, 0.12);
+const DRIFT_PERIODS = [13, 17, 23];
+/** Vertical bob. */
+const BOB_AMPLITUDE = 0.1;
+const BOB_PERIOD = 6.5;
+/** Base facing: nose to screen left, turned a little toward the viewer. */
+const BASE_DIR = new THREE.Vector3(-1, 0, 0.42).normalize();
+/** Slow attitude sway: yaw / pitch / roll amplitudes (rad) and periods (s). */
+const SWAY_YAW = 0.1;
+const SWAY_PITCH = 0.05;
+const SWAY_ROLL = 0.06;
+const SWAY_PERIODS = [11, 8.5, 14];
+/** Cursor response: drift toward the pointer and turn toward it. */
+const CURSOR_DRIFT = new THREE.Vector2(0.35, 0.22);
+const CURSOR_TURN = new THREE.Vector2(0.28, 0.16);
+const CURSOR_TAU = 1.8;
 
-// Path: a slow loop seen from the front, so the fish shows its flank at the
-// near and far points and turns toward / away from the viewer at the sides.
-const LOOP_PERIOD = 56;
-const LOOP_X = 2.6;
-const LOOP_Z = 0.9;
-const LOOP_Y = 0.3;
-/** Vertical bob: amplitude and period. */
-const BOB_AMPLITUDE = 0.12;
-const BOB_PERIOD = 7;
-/** Heading follows the path tangent with this lag (seconds). */
-const HEADING_TAU = 0.9;
-/** Pitch follows the vertical velocity partially. */
-const PITCH_FOLLOW = 0.6;
-/** Bank: roll per rad/s of heading change, and its clamp. */
-const BANK_GAIN = 2.2;
-const BANK_MAX = 0.3;
-/** Cursor response: the loop centre and gaze drift toward the pointer. */
-const CURSOR_DRIFT = new THREE.Vector2(0.6, 0.4);
-const CURSOR_LOOK = new THREE.Vector2(1.2, 0.8);
-const CURSOR_TAU = 1.6;
+// ------------------------------------------------------------------- fins
+/** Mesh kinds for the vertex shader. */
+const KIND = {
+  body: 0,
+  tail: 1,
+  pectoral: 2,
+  pelvic: 3,
+  dorsal: 4,
+  anal: 5,
+} as const;
 
 const _pos = new THREE.Vector3();
-const _vel = new THREE.Vector3();
-const _target = new THREE.Vector3();
-const _q = new THREE.Quaternion();
-const _bankQ = new THREE.Quaternion();
+const _dir = new THREE.Vector3();
 const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _roll = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 const _zAxis = new THREE.Vector3(0, 0, 1);
-const _fwd = new THREE.Vector3();
-const _prevFwd = new THREE.Vector3(0, 0, -1);
+const _origin = new THREE.Vector3();
 
 export type ProgressCallback = (fraction: number) => void;
 
-interface SwimUniforms {
+interface SharedUniforms {
   uTime: THREE.IUniform<number>;
   uSwim: THREE.IUniform<number>;
   uNoseZ: THREE.IUniform<number>;
@@ -70,54 +68,110 @@ uniform float uTime;
 uniform float uSwim;
 uniform float uNoseZ;
 uniform float uTailZ;
+uniform float uKind;
+uniform float uSide;
 
-// s: 0 at the nose, 1 at the tail tip. Returns lateral (x) offset in model units.
-float swimS(float z) {
-  return clamp((z - uNoseZ) / (uTailZ - uNoseZ), 0.0, 1.0);
-}
-float swimOffset(float s, float lag) {
+const float TAU = 6.2831853;
+
+// Shallow body sway, nose -> tail. s: 0 at the nose, 1 at the tail-fin tip.
+float bodySway(float z) {
   float len = uTailZ - uNoseZ;
-  float env = ${HEAD_AMP.toFixed(4)} + ${TAIL_AMP.toFixed(4)} * s * s;
-  float phase = s * ${(Math.PI * 2 * WAVELENGTHS).toFixed(4)} - uTime * ${(Math.PI * 2 * BEAT_HZ).toFixed(4)} - lag;
-  return len * env * sin(phase) * uSwim;
+  float s = clamp((z - uNoseZ) / len, 0.0, 1.0);
+  float env = 0.003 + 0.026 * s * s;
+  float phase = s * TAU * 0.9 - uTime * TAU * 0.38;
+  return len * env * sin(phase);
 }
-float swimSlope(float s, float lag) {
-  // d(offset)/dz, by finite difference along the body.
-  float len = uTailZ - uNoseZ;
-  float e = 0.01;
-  return (swimOffset(s + e, lag) - swimOffset(s - e, lag)) / (2.0 * e * len);
+
+vec3 swimDisp(vec3 p) {
+  vec3 d = vec3(bodySway(p.z), 0.0, 0.0);
+
+  if (uKind == 1.0) {
+    // Tail fin: ripple that grows toward the trailing edge, plus the two
+    // lobes fluttering against each other.
+    float r = clamp((p.z + 2.3) / 2.85, 0.0, 1.0);
+    float lobe = p.y / 1.3;
+    d.x += 0.07 * r * r * sin(p.z * 1.6 - uTime * TAU * 0.38 - 1.1);
+    d.x += 0.035 * r * lobe * sin(uTime * TAU * 0.55 + lobe * 1.2 + 0.7);
+  } else if (uKind == 2.0) {
+    // Pectoral: sculling. Hinged at the body (|x| ~ 0.44), the tip traces a
+    // slow ellipse (down/forward, up/back) with a ripple running outward.
+    float r = clamp((abs(p.x) - 0.44) / 0.86, 0.0, 1.0);
+    float t = uTime * TAU * 0.5 + uSide * 1.7;
+    float e = r * r;
+    d.y += 0.14 * e * sin(t);
+    d.z += 0.07 * e * cos(t);
+    d.y += 0.025 * r * sin(r * 5.0 - t * 1.6);
+  } else if (uKind == 3.0) {
+    // Pelvic: small lateral flutter.
+    float r = clamp((abs(p.x) - 0.27) / 0.26, 0.0, 1.0);
+    float t = uTime * TAU * 0.6 + uSide * 2.3 + 0.9;
+    d.x += uSide * 0.04 * r * r * sin(t);
+    d.y += 0.02 * r * r * cos(t);
+  } else if (uKind == 4.0) {
+    // Dorsal: wave running back along the fin, growing toward the tip.
+    float h = clamp((p.y - 0.45) / 1.13, 0.0, 1.0);
+    d.x += 0.07 * h * h * sin(p.z * 2.1 - uTime * TAU * 0.45);
+  } else if (uKind == 5.0) {
+    // Anal: same, smaller.
+    float h = clamp((-0.28 - p.y) / 0.45, 0.0, 1.0);
+    d.x += 0.04 * h * h * sin(p.z * 2.6 - uTime * TAU * 0.5 + 1.3);
+  }
+
+  return d * uSwim;
 }
 `;
 
-function patchMaterial(material: THREE.Material, uniforms: SwimUniforms, lag: number): void {
-  material.customProgramCacheKey = () => `swim-${lag}`;
+const NORMAL_CHUNK = /* glsl */ `
+#include <beginnormal_vertex>
+{
+  // Jacobian of the displacement field by central differences, then
+  // n' = (I + J)^-T n ~= n - J^T n for small deformations.
+  const float e = 0.02;
+  vec3 jx = (swimDisp(position + vec3(e, 0.0, 0.0)) - swimDisp(position - vec3(e, 0.0, 0.0))) / (2.0 * e);
+  vec3 jy = (swimDisp(position + vec3(0.0, e, 0.0)) - swimDisp(position - vec3(0.0, e, 0.0))) / (2.0 * e);
+  vec3 jz = (swimDisp(position + vec3(0.0, 0.0, e)) - swimDisp(position - vec3(0.0, 0.0, e))) / (2.0 * e);
+  vec3 n = objectNormal;
+  objectNormal = normalize(n - vec3(dot(jx, n), dot(jy, n), dot(jz, n)));
+  #ifdef USE_TANGENT
+  vec3 t = objectTangent;
+  objectTangent = normalize(t + jx * t.x + jy * t.y + jz * t.z);
+  #endif
+}
+`;
+
+const POSITION_CHUNK = /* glsl */ `
+#include <begin_vertex>
+transformed += swimDisp(position);
+`;
+
+function patchMaterial(
+  material: THREE.Material,
+  shared: SharedUniforms,
+  kind: number,
+  side: number,
+): void {
+  const own = {
+    uKind: { value: kind },
+    uSide: { value: side },
+  };
+  material.customProgramCacheKey = () => `swim-${kind}`;
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, shared, own);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\n${SWIM_CHUNK}`)
-      .replace(
-        '#include <beginnormal_vertex>',
-        `#include <beginnormal_vertex>
-        {
-          float s = swimS(position.z);
-          float k = swimSlope(s, ${lag.toFixed(3)});
-          // Shear x by k*z rotates normals: n' = (n.x, n.y, n.z - k * n.x).
-          objectNormal = normalize(vec3(objectNormal.x, objectNormal.y, objectNormal.z - k * objectNormal.x));
-          #ifdef USE_TANGENT
-          objectTangent = normalize(vec3(objectTangent.x, objectTangent.y, objectTangent.z - k * objectTangent.x));
-          #endif
-        }`,
-      )
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-        {
-          float s = swimS(position.z);
-          transformed.x += swimOffset(s, ${lag.toFixed(3)});
-        }`,
-      );
+      .replace('#include <beginnormal_vertex>', NORMAL_CHUNK)
+      .replace('#include <begin_vertex>', POSITION_CHUNK);
   };
   material.needsUpdate = true;
+}
+
+function kindFor(name: string): number {
+  if (name.startsWith('CF_FinTail')) return KIND.tail;
+  if (name.startsWith('CF_FinPectoral')) return KIND.pectoral;
+  if (name.startsWith('CF_FinPelvic')) return KIND.pelvic;
+  if (name.startsWith('CF_FinDorsal')) return KIND.dorsal;
+  if (name.startsWith('CF_FinAnal')) return KIND.anal;
+  return KIND.body;
 }
 
 export class Fish {
@@ -126,10 +180,7 @@ export class Fish {
   readonly centre: THREE.Vector3;
   private readonly reducedMotion: boolean;
   private readonly cursor = new THREE.Vector2();
-  private readonly heading = new THREE.Quaternion();
-  private readonly uniforms: SwimUniforms;
-  private bank = 0;
-  private hasHeading = false;
+  private readonly uniforms: SharedUniforms;
 
   private constructor(model: THREE.Object3D, centre: THREE.Vector3, reducedMotion: boolean) {
     this.centre = centre.clone();
@@ -143,37 +194,33 @@ export class Fish {
       uTailZ: { value: box.max.z },
     };
 
-    // Pivot a little ahead of the middle (near the centre of mass), so turns
-    // swing the tail rather than the head.
+    // Pivot around the body's centre of mass so the sway rotates about it.
     const pivot = box.getCenter(new THREE.Vector3());
-    pivot.z = THREE.MathUtils.lerp(box.min.z, box.max.z, 0.42);
+    pivot.z = THREE.MathUtils.lerp(box.min.z, box.max.z, 0.4);
     model.position.sub(pivot).multiplyScalar(MODEL_SCALE);
     model.scale.setScalar(MODEL_SCALE);
 
-    const patched = new Set<THREE.Material>();
     model.traverse((o) => {
       if (!(o instanceof THREE.Mesh)) return;
       o.frustumCulled = false;
-      const isTailFin = o.name === 'CF_FinTail';
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
-        if (m.transparent) {
-          // Blended fins: draw after the body, never write depth.
-          m.depthWrite = false;
-          o.renderOrder = 1;
-        }
-        if (patched.has(m)) continue;
-        patched.add(m);
-        patchMaterial(m, this.uniforms, isTailFin ? TAIL_FIN_LAG : 0);
+      const kind = kindFor(o.name);
+      const side = o.name.endsWith('.R') ? -1 : 1;
+      // Every mesh gets its own material so each fin can carry its own
+      // kind / side uniforms. Textures stay shared.
+      const source = Array.isArray(o.material) ? o.material[0] : o.material;
+      const mat = source.clone();
+      if (mat.transparent) {
+        // Blended fins: draw after the body, never write depth.
+        mat.depthWrite = false;
+        o.renderOrder = 1;
       }
+      patchMaterial(mat, this.uniforms, kind, side);
+      o.material = mat;
     });
 
     this.root.add(model);
     this.root.position.copy(centre);
-    if (reducedMotion) {
-      // Static pose: side-on, nose to the right.
-      this.root.rotation.set(0, -Math.PI / 2 + 0.3, 0);
-    }
+    this.face(BASE_DIR, 0);
   }
 
   static load(
@@ -200,44 +247,35 @@ export class Fish {
 
     this.cursor.lerp(pointer, 1 - Math.exp(-dt / CURSOR_TAU));
 
-    // Loop position and analytic velocity. The fish always moves forward
-    // along the tangent, so it never has to turn on the spot.
-    const w = (Math.PI * 2) / LOOP_PERIOD;
-    const th = w * time;
-    _pos.set(LOOP_X * Math.cos(th), LOOP_Y * Math.sin(2 * th + 0.8), LOOP_Z * Math.sin(th));
-    _vel.set(-LOOP_X * w * Math.sin(th), 2 * LOOP_Y * w * Math.cos(2 * th + 0.8), LOOP_Z * w * Math.cos(th));
-    const bob = BOB_AMPLITUDE * Math.sin((time / BOB_PERIOD) * Math.PI * 2);
-
+    // Position: anchor + slow multi-period drift + bob + cursor pull.
+    const w = (i: number) => (Math.PI * 2 * time) / DRIFT_PERIODS[i];
+    _pos.set(
+      DRIFT.x * Math.sin(w(0)) * Math.cos(w(2) * 0.5),
+      DRIFT.y * Math.sin(w(1) + 1.1) + BOB_AMPLITUDE * Math.sin((time / BOB_PERIOD) * Math.PI * 2),
+      DRIFT.z * Math.sin(w(2) + 2.4),
+    );
+    _pos.x += this.cursor.x * CURSOR_DRIFT.x;
+    _pos.y += this.cursor.y * CURSOR_DRIFT.y;
     this.root.position.copy(this.centre).add(_pos);
-    this.root.position.x += this.cursor.x * CURSOR_DRIFT.x;
-    this.root.position.y += this.cursor.y * CURSOR_DRIFT.y + bob;
 
-    // Heading: along the velocity, nose nudged toward the cursor.
-    _fwd.copy(_vel);
-    _fwd.y *= PITCH_FOLLOW;
-    _fwd.normalize();
-    _target.copy(this.root.position).addScaledVector(_fwd, 4);
-    _target.x += this.cursor.x * CURSOR_LOOK.x;
-    _target.y += this.cursor.y * CURSOR_LOOK.y;
-    _m.lookAt(this.root.position, _target, _up);
+    // Attitude: slow sway around the base facing, turned toward the cursor.
+    const s = (i: number) => Math.sin((Math.PI * 2 * time) / SWAY_PERIODS[i]);
+    // Positive yaw turns the (-X facing) nose toward the camera, so cursor on
+    // the right brings the face round; cursor up lifts the nose.
+    const yaw = SWAY_YAW * s(0) + this.cursor.x * CURSOR_TURN.x;
+    const pitch = SWAY_PITCH * s(1) + this.cursor.y * CURSOR_TURN.y;
+    const roll = SWAY_ROLL * s(2);
+    _dir.copy(BASE_DIR).applyAxisAngle(_up, yaw);
+    _dir.y += pitch;
+    this.face(_dir.normalize(), roll);
+  }
+
+  private face(dir: THREE.Vector3, roll: number): void {
+    // Matrix4.lookAt(eye, target) leaves -Z pointing at the target, which is
+    // where the fish's nose is.
+    _m.lookAt(_origin, dir, _up);
     _q.setFromRotationMatrix(_m);
-
-    if (!this.hasHeading) {
-      this.heading.copy(_q);
-      _prevFwd.copy(_fwd);
-      this.hasHeading = true;
-    } else {
-      this.heading.slerp(_q, 1 - Math.exp(-dt / HEADING_TAU));
-    }
-
-    // Bank into turns: roll from the heading's rate of change about Y.
-    const cross = _prevFwd.x * _fwd.z - _prevFwd.z * _fwd.x;
-    const yawRate = Math.asin(THREE.MathUtils.clamp(cross, -1, 1)) / dt;
-    const bankTarget = THREE.MathUtils.clamp(yawRate * BANK_GAIN, -BANK_MAX, BANK_MAX);
-    this.bank += (bankTarget - this.bank) * (1 - Math.exp(-dt / 1.2));
-    _prevFwd.copy(_fwd);
-
-    _bankQ.setFromAxisAngle(_zAxis, this.bank);
-    this.root.quaternion.copy(this.heading).multiply(_bankQ);
+    _roll.setFromAxisAngle(_zAxis, roll);
+    this.root.quaternion.copy(_q).multiply(_roll);
   }
 }
