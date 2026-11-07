@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CyberFish loading screen reference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  html,body{margin:0;height:100%;background:#060a14;font-family:'JetBrains Mono',monospace}
+  #loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:#060a14;transition:opacity 600ms}
+  #loader.done{opacity:0;pointer-events:none}
+  #mark{width:min(320px,60vw);height:auto;overflow:visible;display:block}
+  .row{width:min(320px,60vw);display:flex;justify-content:space-between;align-items:baseline}
+  .lbl{font-size:12px;letter-spacing:.14em;color:#4a5368;font-weight:500}
+  .pct{font-size:12px;letter-spacing:.14em;color:#8a94ab}
+</style>
+</head>
+<body>
+<!--
+  CyberFish loading screen. Port this behaviour into the Vite app.
+
+  Behaviour
+  1. The mark starts as a faint accent outline (stroke #2EA8FF at 28%, no fill).
+  2. A clip rect grows from the left edge of the mark to the right as progress goes 0 to 1.
+     Inside the clip: a blurred accent halo layer plus the solid mark (white fill, accent stroke).
+  3. A bright scan edge (white 6-unit line plus a blurred #7FD0FF band) sits at the clip boundary.
+  4. From 85% to 100% the halo and the scan edge fade to zero, so the final state is the flat nav mark.
+  5. Label bottom-left "LOADING CONTENT" (12px, 0.14em, #4a5368), percentage bottom-right.
+     At 100% the label becomes "READY" in #2EA8FF.
+  6. 500ms after 100%: the mark scales down and translates up to the nav position (900ms, cubic-bezier(.2,.8,.2,1)),
+     the loader fades out over 600ms, the scene is revealed. The nav mark should appear exactly where the
+     animated mark lands, so it reads as the same object.
+
+  Progress should be driven by real loading (THREE.LoadingManager + shader compile), not a timer.
+  Ease the displayed progress toward the real value so it never jumps.
+  Respect prefers-reduced-motion: show the flat mark and the percentage, no scan edge, no halo.
+-->
+<div id="loader">
+  <svg id="mark" viewBox="30 -649 1620 640" aria-label="CyberFish">
+    <defs>
+      <filter id="glow" x="-40%" y="-60%" width="180%" height="220%">
+        <feGaussianBlur stdDeviation="34" result="b1"/>
+        <feGaussianBlur stdDeviation="12" result="b2"/>
+        <feMerge><feMergeNode in="b1"/><feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="edgeglow" x="-300%" y="-20%" width="700%" height="140%"><feGaussianBlur stdDeviation="20"/></filter>
+      <clipPath id="clip"><rect id="cliprect" x="30" y="-700" width="0" height="760"/></clipPath>
+      <path id="p" d="M70 -49V-185L346 -306Q366 -315 388.0 -321.0Q410 -327 423 -329Q410 -331 388.0 -336.5Q366 -342 346 -351L70 -472V-609L530 -401V-258Z M1070.0 -49 610.0 -257V-400L1070.0 -609V-473L794.0 -352Q774.0 -343 752.0 -337.0Q730.0 -331 717.0 -329Q730.0 -327 752.0 -321.5Q774.0 -316 794.0 -307L1070.0 -186Z M1150.0 -49V-185L1426.0 -306Q1446.0 -315 1468.0 -321.0Q1490.0 -327 1503.0 -329Q1490.0 -331 1468.0 -336.5Q1446.0 -342 1426.0 -351L1150.0 -472V-609L1610.0 -401V-258Z"/>
+    </defs>
+    <use href="#p" fill="none" stroke="#2EA8FF" stroke-width="10" opacity="0.28"/>
+    <g clip-path="url(#clip)">
+      <use id="halo" href="#p" fill="#2EA8FF" stroke="#2EA8FF" stroke-width="18" filter="url(#glow)" opacity="0.9"/>
+      <use href="#p" fill="#F4FBFF" stroke="#2EA8FF" stroke-width="18" paint-order="stroke fill"/>
+    </g>
+    <g id="edge">
+      <rect id="edgeblur" x="30" y="-680" width="14" height="720" fill="#7FD0FF" filter="url(#edgeglow)" opacity="0.9"/>
+      <rect id="edgeline" x="30" y="-680" width="6" height="720" fill="#FFFFFF"/>
+    </g>
+  </svg>
+  <div class="row"><div class="lbl" id="label">LOADING CONTENT</div><div class="pct" id="pct">0%</div></div>
+</div>
+
+<script>
+// Demo driver: replace `target` with real loading progress (0..1).
+(function(){
+  var X0=30, X1=1650, W=X1-X0;
+  var clip=document.getElementById('cliprect'), halo=document.getElementById('halo'),
+      edge=document.getElementById('edge'), eb=document.getElementById('edgeblur'), el=document.getElementById('edgeline'),
+      pct=document.getElementById('pct'), label=document.getElementById('label'),
+      mark=document.getElementById('mark'), loader=document.getElementById('loader');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var target=0, shown=0, finished=false, t0=performance.now();
+
+  function render(p){
+    var x=X0+W*p;
+    clip.setAttribute('width', x-X0);
+    eb.setAttribute('x', x-7); el.setAttribute('x', x-3);
+    var fade = p>0.85 ? 1-(p-0.85)/0.15 : 1;
+    if(reduce) fade=0;
+    halo.setAttribute('opacity', (0.9*fade).toFixed(3));
+    edge.setAttribute('opacity', fade.toFixed(3));
+    pct.textContent=Math.round(p*100)+'%';
+  }
+  function finish(){
+    finished=true;
+    label.textContent='READY'; label.style.color='#2EA8FF';
+    setTimeout(function(){
+      mark.style.transition='transform 900ms cubic-bezier(.2,.8,.2,1)';
+      mark.style.transform='scale(0.42) translateY(-80px)';
+      setTimeout(function(){ loader.classList.add('done'); }, 500);
+    }, 500);
+  }
+  function tick(now){
+    // demo: fake progress. In the app set `target` from LoadingManager.onProgress.
+    target=Math.min(1,(now-t0)/3800);
+    shown += (target-shown)*0.08;
+    if(target>=1 && shown>0.995) shown=1;
+    render(shown);
+    if(shown<1) requestAnimationFrame(tick); else if(!finished) finish();
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
