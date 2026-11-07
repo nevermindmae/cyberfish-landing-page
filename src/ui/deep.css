@@ -10,11 +10,11 @@
   left: clamp(32px, 6vw, 96px);
   top: 50%;
   transform: translateY(-50%);
-  width: min(50ch, 38vw);
+  width: min(640px, 42vw);
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 38px;
+  gap: 42px;
   pointer-events: none;
 }
 
@@ -46,8 +46,8 @@ html[data-deep][data-surfacing] .deep-block {
 
 /* Titles in Michroma, like the wordmark; mixed case, a little tracking. */
 .deep-title {
-  margin: 0 0 16px;
-  font: 400 clamp(20px, 1.9vw, 28px) / 1.3 var(--font-display);
+  margin: 0 0 18px;
+  font: 400 clamp(24px, 2.3vw, 34px) / 1.3 var(--font-display);
   letter-spacing: 0.02em;
   color: var(--white);
   text-shadow: 0 0 18px rgba(46, 168, 255, 0.25);
@@ -55,7 +55,7 @@ html[data-deep][data-surfacing] .deep-block {
 
 .deep-text {
   margin: 0;
-  font: 400 clamp(15px, 1.25vw, 18px) / 1.7 var(--font-mono);
+  font: 400 clamp(17px, 1.55vw, 22px) / 1.65 var(--font-mono);
   color: var(--white);
   text-shadow: 0 1px 14px rgba(6, 10, 20, 0.8);
 }
