@@ -23,14 +23,19 @@ const FOV_PORTRAIT = 48;
 const FISH_ABOVE_CAMERA = 1.2;
 /**
  * Where the fish hovers (y is set per frame from the camera height). Offset
- * right in landscape to leave the left side for the tagline; centred on
+ * to one side in landscape to leave the other for the tagline; centred on
  * portrait screens where the copy sits below it.
  */
-export const FOCUS = new THREE.Vector3(1.9, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
+const FOCUS_OFFSET_X = 1.9;
+const FOCUS = new THREE.Vector3(0, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
 
 export interface SceneOptions {
   reducedMotion: boolean;
   mobile: boolean;
+  /** Which screen side the fish hovers on (landscape). */
+  fishSide: 'left' | 'right';
+  /** Which way its nose points. */
+  fishFacing: 'left' | 'right';
 }
 
 /** Mouse parallax: camera offset in world units and extra rotation in radians. */
@@ -63,10 +68,14 @@ export class CyberScene {
   private readonly pointer = new THREE.Vector2();
   private readonly parallax = new THREE.Vector2();
   private resizeObserver: ResizeObserver;
+  /** FOCUS shifted to the configured side. */
+  private readonly focus: THREE.Vector3;
 
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
     this.opts = opts;
+    this.focus = FOCUS.clone();
+    this.focus.x = opts.fishSide === 'left' ? -FOCUS_OFFSET_X : FOCUS_OFFSET_X;
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -108,8 +117,8 @@ export class CyberScene {
     // Lighting: a cool-white key from the camera side, a big soft sky fill,
     // and the fish itself as the only coloured light (added with the fish).
     const key = new THREE.DirectionalLight(OCEAN.key, 1.5);
-    key.position.copy(FISH_KEY_DIR).multiplyScalar(30).add(FOCUS);
-    key.target.position.copy(FOCUS);
+    key.position.copy(FISH_KEY_DIR).multiplyScalar(30).add(this.focus);
+    key.target.position.copy(this.focus);
     this.scene.add(key, key.target);
     const fill = new THREE.HemisphereLight(OCEAN.fill, OCEAN.waterBase, 0.55);
     this.scene.add(fill);
@@ -133,10 +142,11 @@ export class CyberScene {
   /** Loads the hero fish and adds it to the scene. Progress is 0..1 of the download. */
   async loadFish(onProgress?: ProgressCallback): Promise<void> {
     const fish = await Fish.load(
-      FOCUS,
+      this.focus,
       {
         reducedMotion: this.opts.reducedMotion,
         anisotropy: this.renderer.capabilities.getMaxAnisotropy(),
+        facing: this.opts.fishFacing,
       },
       onProgress,
     );
@@ -245,7 +255,7 @@ export class CyberScene {
     this.cameraY += (targetY - this.cameraY) * ky;
 
     if (this.fish) {
-      this.fish.centre.x = this.camera.aspect < 1 ? 0 : FOCUS.x;
+      this.fish.centre.x = this.camera.aspect < 1 ? 0 : this.focus.x;
       this.fish.centre.y = this.cameraY + FISH_ABOVE_CAMERA;
       this.fish.update(this.time, dt, this.pointer);
     }

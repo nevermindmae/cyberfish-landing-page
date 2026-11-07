@@ -24,6 +24,20 @@ html[data-entered] .hero {
   transform: translateY(-50%);
 }
 
+/* ?face=right: the tail now points at the copy and reaches further than
+   the nose did, so give it a little more room. */
+html[data-facing='right'] .hero {
+  right: 61vw;
+  max-width: calc(39vw - var(--frame-inset) - 12px);
+}
+
+/* ?layout=mirror: fish on the left (facing right), copy on the right. */
+html[data-layout='mirror'] .hero {
+  right: auto;
+  left: 57vw;
+  max-width: calc(43vw - var(--frame-inset) - 12px);
+}
+
 .hero-title {
   margin: 0 0 22px;
   font: 400 clamp(44px, 5.6vw, 76px) / 1.05 var(--font-display);
@@ -48,7 +62,8 @@ html[data-entered] .hero {
 }
 
 @media (max-aspect-ratio: 1/1) {
-  .hero {
+  .hero,
+  html[data-facing] .hero {
     right: auto;
     left: calc(var(--frame-inset) + 12px);
     top: auto;
