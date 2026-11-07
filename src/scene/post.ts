@@ -71,7 +71,8 @@ export class Post {
       uniforms: {
         tDiffuse: { value: null },
         uTime: { value: 0 },
-        uGrain: { value: 0.06 },
+        uGrain: { value: 0.13 },
+        uGrainSize: { value: pr },
         uVignette: { value: 0.45 },
         uDiveTime: { value: 0 },
         uWobble: { value: 0 },

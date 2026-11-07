@@ -180,15 +180,15 @@ export class Ocean {
 
     this.material = new THREE.MeshPhysicalMaterial({
       color: OCEAN.waterBase,
-      // A touch rougher than the Blender value: a directional key on a
-      // mirror-smooth surface throws hard glints across the whole sea.
-      roughness: 0.26,
+      // Glossy, but not mirror-smooth: a directional key on a mirror throws
+      // hard glints across the whole sea. The clearcoat carries the sheen.
+      roughness: 0.2,
       metalness: 0,
-      clearcoat: 0.35,
-      clearcoatRoughness: 0.18,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.14,
       ior: 1.33,
       envMap: opts.envMap,
-      envMapIntensity: 0.42,
+      envMapIntensity: 0.7,
       normalMap: this.bump,
       normalScale: new THREE.Vector2(0.06, 0.06),
       fog: true,

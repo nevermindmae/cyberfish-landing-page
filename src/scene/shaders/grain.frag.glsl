@@ -5,6 +5,7 @@
 uniform sampler2D tDiffuse;
 uniform float uTime;
 uniform float uGrain;
+uniform float uGrainSize; // grain cell in device pixels
 uniform float uVignette;
 // Dive transition.
 uniform float uDiveTime;  // seconds since the dive began
@@ -44,8 +45,13 @@ void main() {
   }
   vec4 col = gl_FragColor;
 
-  float g = hash(gl_FragCoord.xy + vec2(uTime * 37.0, uTime * 11.0)) - 0.5;
-  col.rgb += g * uGrain;
+  // Film grain: one cell per CSS pixel, strongest in the mid-tones and
+  // still plainly there in the shadows and the sky.
+  float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+  vec2 cell = floor(gl_FragCoord.xy / uGrainSize);
+  float g = hash(cell + vec2(uTime * 37.0, uTime * 11.0)) - 0.5;
+  float weight = 0.6 + 0.9 * (1.0 - abs(2.0 * lum - 1.0));
+  col.rgb += g * uGrain * weight;
 
   vec2 d = (uv - 0.5) * vec2(1.0, 0.85);
   float v = 1.0 - smoothstep(0.3, 0.95, length(d) * 1.35) * uVignette;
@@ -54,7 +60,7 @@ void main() {
   // Under the surface: everything sinks toward a deep blue-black, the
   // edges first; the impact itself is a cold flash.
   vec3 deep = vec3(0.01, 0.03, 0.07);
-  float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+  lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
   col.rgb = mix(col.rgb, deep + lum * vec3(0.05, 0.18, 0.35), uDeep);
   col.rgb += uFlash * vec3(0.55, 0.78, 1.0);
   col.rgb *= 1.0 - uDark;
