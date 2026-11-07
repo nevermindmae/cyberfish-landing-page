@@ -15,6 +15,11 @@ const W = X1 - X0;
 
 const EASE = 0.08;
 /**
+ * Wordmark typed out one letter per 1/9th of progress, so the final letter
+ * lands together with the bar reaching 100%.
+ */
+const WORDMARK = 'CYBERFISH';
+/**
  * Minimum time from navigation start to 100%. Real progress still drives the
  * bar, but it is paced so a fast (or local) load still reads as a load.
  */
@@ -47,6 +52,7 @@ export class Loader {
   private readonly edgeLine = el<SVGRectElement>('edgeline');
   private readonly pct = el<HTMLElement>('pct');
   private readonly label = el<HTMLElement>('label');
+  private readonly typed = el<HTMLElement>('typed');
   private readonly enterSound = el<HTMLButtonElement>('enter-sound');
   private readonly enterMute = el<HTMLButtonElement>('enter-mute');
 
@@ -99,6 +105,11 @@ export class Loader {
     this.edge.setAttribute('opacity', fade.toFixed(3));
 
     this.pct.textContent = `${Math.round(p * 100)}%`;
+
+    // floor() so the word only completes at exactly 100%; textContent is only
+    // touched when the letter count changes to avoid needless relayout.
+    const typed = WORDMARK.slice(0, Math.floor(p * WORDMARK.length));
+    if (this.typed.textContent !== typed) this.typed.textContent = typed;
   }
 
   private finish(): void {
