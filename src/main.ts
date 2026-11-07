@@ -1,7 +1,26 @@
 import './ui/tokens.css';
 import './ui/base.css';
+import { Loader } from './ui/loader';
+import { CyberScene } from './scene';
 
 const root = document.getElementById('scene');
 if (!root) throw new Error('#scene container missing');
 
-// Scene bootstraps in the next milestone.
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+
+// Progress milestones. Reaching this script means the module graph (three.js
+// included) has been fetched and evaluated. Asset loads via a LoadingManager
+// can be wired into the 0.35..0.6 band when the fish adds textures.
+const loader = new Loader(reducedMotion);
+loader.setProgress(0.35);
+
+const scene = new CyberScene(root, { reducedMotion, mobile });
+loader.setProgress(0.6);
+
+scene.compile();
+loader.setProgress(0.85);
+
+scene.start();
+// First frame is on screen behind the overlay; reveal.
+requestAnimationFrame(() => loader.setProgress(1));

@@ -15,9 +15,105 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Michroma&family=JetBrains+Mono:wght@400;500&display=swap"
     />
+    <!--
+      Loader styles are inlined so the overlay paints before any module
+      script (three.js included) has been fetched or executed.
+    -->
+    <style>
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+        background: #060a14;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        transition: opacity 600ms;
+      }
+      /* Horizontal scanline texture, after the app icon (3/7 duty, ~8% white). */
+      #loader::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.085) 0 1px,
+          transparent 1px 4px
+        );
+      }
+      #loader.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #mark {
+        width: min(320px, 60vw);
+        height: auto;
+        overflow: visible;
+        display: block;
+      }
+      #loader .row {
+        width: min(320px, 60vw);
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      #loader .lbl {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #4a5368;
+        font-weight: 500;
+      }
+      #loader .pct {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        color: #8a94ab;
+      }
+    </style>
   </head>
   <body>
     <div id="scene" aria-hidden="true"></div>
+    <div id="loader" role="status" aria-live="polite">
+      <svg id="mark" viewBox="30 -649 1620 640" aria-label="CyberFish">
+        <defs>
+          <filter id="glow" x="-40%" y="-60%" width="180%" height="220%">
+            <feGaussianBlur stdDeviation="34" result="b1" />
+            <feGaussianBlur stdDeviation="12" result="b2" />
+            <feMerge>
+              <feMergeNode in="b1" />
+              <feMergeNode in="b2" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="edgeglow" x="-300%" y="-20%" width="700%" height="140%">
+            <feGaussianBlur stdDeviation="20" />
+          </filter>
+          <clipPath id="clip"><rect id="cliprect" x="30" y="-700" width="0" height="760" /></clipPath>
+          <path
+            id="p"
+            d="M70 -49V-185L346 -306Q366 -315 388.0 -321.0Q410 -327 423 -329Q410 -331 388.0 -336.5Q366 -342 346 -351L70 -472V-609L530 -401V-258Z M1070.0 -49 610.0 -257V-400L1070.0 -609V-473L794.0 -352Q774.0 -343 752.0 -337.0Q730.0 -331 717.0 -329Q730.0 -327 752.0 -321.5Q774.0 -316 794.0 -307L1070.0 -186Z M1150.0 -49V-185L1426.0 -306Q1446.0 -315 1468.0 -321.0Q1490.0 -327 1503.0 -329Q1490.0 -331 1468.0 -336.5Q1446.0 -342 1426.0 -351L1150.0 -472V-609L1610.0 -401V-258Z"
+          />
+        </defs>
+        <use href="#p" fill="none" stroke="#2EA8FF" stroke-width="10" opacity="0.28" />
+        <g clip-path="url(#clip)">
+          <use id="halo" href="#p" fill="#2EA8FF" stroke="#2EA8FF" stroke-width="18" filter="url(#glow)" opacity="0.9" />
+          <use href="#p" fill="#F4FBFF" stroke="#2EA8FF" stroke-width="18" paint-order="stroke fill" />
+        </g>
+        <g id="edge">
+          <rect id="edgeblur" x="30" y="-680" width="14" height="720" fill="#7FD0FF" filter="url(#edgeglow)" opacity="0.9" />
+          <rect id="edgeline" x="30" y="-680" width="6" height="720" fill="#FFFFFF" />
+        </g>
+      </svg>
+      <div class="row">
+        <div class="lbl" id="label">Loading content</div>
+        <div class="pct" id="pct">0%</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
