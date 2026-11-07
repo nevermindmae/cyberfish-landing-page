@@ -16,8 +16,8 @@
   border: 0;
   background: none;
   color: var(--text);
-  font: 400 13px / 1 var(--font-mono);
-  letter-spacing: 0.18em;
+  font: 400 clamp(15px, 1.35vw, 19px) / 1 var(--font-mono);
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   text-shadow: 0 1px 14px rgba(6, 10, 20, 0.7);
   cursor: pointer;
@@ -38,11 +38,11 @@ html[data-entered] .cta {
 }
 
 .cta-arrow {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
   animation: cta-bob 2.4s ease-in-out infinite;
@@ -113,7 +113,7 @@ html[data-dived] .dive-screen {
 @media (max-width: 480px) {
   .cta {
     bottom: 18px;
-    font-size: 12px;
+    font-size: 14px;
   }
 }
 

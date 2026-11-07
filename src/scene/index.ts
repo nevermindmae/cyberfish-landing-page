@@ -3,7 +3,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { Post } from './post';
 import { Fish, type ProgressCallback } from './fish';
 import { Sky } from './sky';
-import { CHURN_CREST, Ocean, WAVE_CREST } from './ocean';
+import { Ocean, WAVE_CREST } from './ocean';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
 /**
@@ -44,25 +44,23 @@ const PARALLAX_TILT = 0.025;
 
 /**
  * The dive ("Deploy The Decoy?"): the sea churns, the fish dips its nose and
- * shoots into the water ahead, the camera turns to the hole it made and
- * follows it under, and the frame goes to black. Times in seconds from the
- * click.
+ * shoots into the water ahead, and the camera, still looking out to sea,
+ * sinks slowly straight down through the surface until the frame goes to
+ * black. Times in seconds from the click.
  */
 /** Hard stop; normally the fade completes first (its timing follows the swell). */
-const DIVE_DURATION = 5.2;
+const DIVE_DURATION = 6;
 /** Churn ramps up over this window. */
 const DIVE_CHURN = [0.1, 1.6] as const;
 /** Where the fish goes in, relative to the camera's rest position (x is
- * scaled by the fish's side). */
-const DIVE_HOLE = new THREE.Vector3(1.4, 0, 7);
+ * scaled by the fish's side). Far enough out to land in the lower frame of
+ * the long, slightly up-tilted hero lens. */
+const DIVE_HOLE = new THREE.Vector3(1.6, 0, 26);
 /** The fish's run from hover to the hole (ease-in). */
-const DIVE_FISH = [0.3, 1.45] as const;
-/** The camera turns toward the hole and the lens opens up from the long
- * hero lens to this (the splash needs room)... */
-const DIVE_TURN = [0.9, 1.9] as const;
-const DIVE_FOV = 62;
-/** ...then plunges into it (ease-in), to this far below the rest plane. */
-const DIVE_PLUNGE = [2.0, 3.3] as const;
+const DIVE_FISH = [0.3, 1.6] as const;
+/** The camera sinks (smooth, slow) over this window, to this far below the
+ * rest plane. */
+const DIVE_SINK = [1.2, 4.6] as const;
 const DIVE_DEPTH = 4;
 /** Fade to black after the lens goes under. */
 const DIVE_DARK_AFTER = 0.2;
@@ -70,7 +68,6 @@ const DIVE_DARK_LENGTH = 0.8;
 /** Reduced motion: no camera move, just the fade. */
 const DIVE_DURATION_STILL = 1.4;
 
-const easeInCubic = (t: number): number => t * t * t;
 const easeInQuad = (t: number): number => t * t;
 const window01 = (t: number, [a, b]: readonly [number, number]): number =>
   THREE.MathUtils.clamp((t - a) / (b - a), 0, 1);
@@ -121,9 +118,6 @@ function quadBezierTangent(
 }
 
 const _tan = new THREE.Vector3();
-const _qBase = new THREE.Quaternion();
-const _qLook = new THREE.Quaternion();
-const _mLook = new THREE.Matrix4();
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 
@@ -449,33 +443,18 @@ export class CyberScene {
     }
     this.ocean.glow = glow;
 
-    // 2. The camera turns toward the hole, then drops into it.
-    const turn = THREE.MathUtils.smoothstep(window01(t, DIVE_TURN), 0, 1);
-    const plunge = easeInCubic(window01(t, DIVE_PLUNGE));
+    // 2. The camera sinks straight down, still looking out to sea. No
+    // rotation: the water simply rises up the frame and closes over.
+    const sink = THREE.MathUtils.smoothstep(window01(t, DIVE_SINK), 0, 1);
     const cam = this.camera.position;
-    cam.x = THREE.MathUtils.lerp(d.camStart.x, d.hole.x, plunge);
-    cam.z = THREE.MathUtils.lerp(d.camStart.z, d.hole.z, plunge);
-    // Lift with the churn so the heaped-up chop stays below the lens.
-    const lift = d.camStart.y + churn * CHURN_CREST;
-    cam.y = THREE.MathUtils.lerp(lift, -DIVE_DEPTH, plunge);
-    if (turn > 0) {
-      const restFov = this.camera.aspect < 1 ? FOV_PORTRAIT : FOV_LANDSCAPE;
-      this.camera.fov = THREE.MathUtils.lerp(restFov, DIVE_FOV, turn);
-      this.camera.updateProjectionMatrix();
-      _qBase.copy(this.camera.quaternion);
-      _v1.copy(d.hole);
-      // Once under, level out and look ahead: the underside of the surface
-      // and the fading splash glow pass overhead as we sink.
-      if (cam.y < d.hole.y) _v1.set(d.hole.x, cam.y - 0.8, d.hole.z - 6);
-      _mLook.lookAt(cam, _v1, this.camera.up);
-      _qLook.setFromRotationMatrix(_mLook);
-      this.camera.quaternion.slerpQuaternions(_qBase, _qLook, turn);
-    }
+    cam.x = d.camStart.x;
+    cam.z = d.camStart.z;
+    cam.y = THREE.MathUtils.lerp(d.camStart.y, -DIVE_DEPTH, sink);
 
     // 3. The lens goes under: a second splash, and the haze becomes deep
     // water so the underside of the surface reads dark.
     const surface = this.ocean.heightAt(cam.x, cam.z);
-    if (d.lensSplashAt < 0 && plunge > 0 && cam.y < surface) {
+    if (d.lensSplashAt < 0 && sink > 0 && cam.y < surface) {
       d.lensSplashAt = t;
       this.ocean.splash(cam.x, cam.z, 0.7);
       const fog = this.scene.fog as THREE.Fog;
@@ -487,27 +466,24 @@ export class CyberScene {
       this.sky.mesh.visible = false;
     }
 
-    // Lens effects: spray as the fish hits, wobble as the water nears the
-    // lens, a cold flash at impact, then the deep tint and the fade.
+    // Lens effects: a little spray as the fish hits, wobble as the water
+    // nears the lens, then the deep tint and the fade. No flash.
     const near = THREE.MathUtils.clamp((surface + 2.0 - cam.y) / 2.0, 0, 1);
     let wobble = near * 0.6;
-    let flash = 0;
     let deep = 0;
     let dark = 0;
     if (d.fishSplashAt >= 0) {
       const since = t - d.fishSplashAt;
-      wobble = Math.max(wobble, 0.45 * Math.exp(-since * 2.5));
-      flash += 0.35 * Math.exp(-since * 7);
+      wobble = Math.max(wobble, 0.3 * Math.exp(-since * 2.5));
     }
     if (d.lensSplashAt >= 0) {
       const since = t - d.lensSplashAt;
       wobble = 1 - 0.5 * THREE.MathUtils.clamp(since / 1.2, 0, 1);
-      flash += Math.exp(-since * 9) * 0.9;
       deep = THREE.MathUtils.clamp(since / 0.15, 0, 1);
       const k = window01(since, [DIVE_DARK_AFTER, DIVE_DARK_AFTER + DIVE_DARK_LENGTH]);
       dark = THREE.MathUtils.smoothstep(k, 0, 1);
     }
-    this.post.setDive({ time: t, wobble, flash: Math.min(flash, 1), deep, dark });
+    this.post.setDive({ time: t, wobble, flash: 0, deep, dark });
 
     if (dark >= 1 || t >= DIVE_DURATION) {
       this.post.setDive({ time: t, wobble: 0, flash: 0, deep: 1, dark: 1 });
