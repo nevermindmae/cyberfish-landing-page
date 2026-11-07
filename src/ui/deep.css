@@ -1,7 +1,7 @@
 /* The deep's copy. Left of the frame in landscape (the unit hangs on the
    right), top of the frame in portrait (the unit sits low). Two short
-   blocks, each with a Michroma section number and a mono kicker per
-   BRAND.md. They come up one after the other once the picture has
+   blocks: a Michroma title (same face as the wordmark) over a mono
+   paragraph. They come up one after the other once the picture has
    surfaced (html[data-deep]) and sink with everything else on the way
    back (html[data-surfacing]). */
 .deep-copy {
@@ -44,22 +44,13 @@ html[data-deep][data-surfacing] .deep-block {
   transition: opacity 500ms ease;
 }
 
-.deep-kicker {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
+/* Titles in Michroma, like the wordmark; mixed case, a little tracking. */
+.deep-title {
   margin: 0 0 14px;
-  font: 500 clamp(12px, 1vw, 13px) / 1 var(--font-mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-mid);
-  text-shadow: 0 1px 14px rgba(6, 10, 20, 0.7);
-}
-
-.deep-num {
-  font: 400 14px / 1 var(--font-display);
-  letter-spacing: 0.1em;
-  color: var(--accent);
+  font: 400 clamp(17px, 1.5vw, 22px) / 1.3 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--white);
+  text-shadow: 0 0 18px rgba(46, 168, 255, 0.25);
 }
 
 .deep-text {
