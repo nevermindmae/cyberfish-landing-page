@@ -21,8 +21,14 @@
     -->
     <style>
       #loader {
-        /* How far the wordmark and enter buttons rise to follow the docked mark. */
-        --rise: 72px;
+        /* Dock: the mark settles to --dock-scale, nudged up by --dock-lift, over
+           --dock-ms. --rise is how far the mark's bottom edge moves, i.e.
+           boxHeight * (1 - scale) / 2 + scale * lift, so the wordmark and
+           buttons follow it. Box is 320px wide, 126px tall on desktop. */
+        --dock-scale: 0.65;
+        --dock-lift: 40px;
+        --dock-ms: 1600ms;
+        --rise: 48px;
         position: fixed;
         inset: 0;
         z-index: 10;
@@ -57,11 +63,11 @@
         height: auto;
         overflow: visible;
         display: block;
-        transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        transition: transform var(--dock-ms) cubic-bezier(0.2, 0.8, 0.2, 1);
       }
       /* Dock toward the nav mark position. Refined once the nav exists. */
       #loader.docked #mark {
-        transform: scale(0.42) translateY(-80px);
+        transform: scale(var(--dock-scale)) translateY(calc(-1 * var(--dock-lift)));
       }
       /* Wordmark: Michroma, 34px large / 0.02em tracking per BRAND.md. Sits under
          the mark at all times and rises with it when the mark docks. */
@@ -71,7 +77,7 @@
         letter-spacing: 0.02em;
         color: #f2f4fa;
         user-select: none;
-        transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        transition: transform var(--dock-ms) cubic-bezier(0.2, 0.8, 0.2, 1);
       }
       #loader.docked .wordmark {
         transform: translateY(calc(-1 * var(--rise)));
@@ -104,10 +110,11 @@
         opacity: 0;
         visibility: hidden;
         transform: translateY(calc(-1 * var(--rise) + 12px));
+        /* Buttons fade in during the last part of the dock (delay ~ 2/3 of --dock-ms). */
         transition:
-          opacity 500ms 600ms,
-          transform 500ms 600ms cubic-bezier(0.2, 0.8, 0.2, 1),
-          visibility 0s 600ms;
+          opacity 600ms 1000ms,
+          transform 600ms 1000ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          visibility 0s 1000ms;
       }
       #loader.docked .enter {
         opacity: 1;
@@ -153,7 +160,8 @@
       /* Narrow screens: the mark box is shorter, so the buttons need less lift. */
       @media (max-width: 480px) {
         #loader {
-          --rise: 56px;
+          /* Narrower mark box (60vw), so its bottom edge moves less. */
+          --rise: 44px;
         }
       }
       @media (prefers-reduced-motion: reduce) {

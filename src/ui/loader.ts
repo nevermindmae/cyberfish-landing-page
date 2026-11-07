@@ -15,8 +15,8 @@ const W = X1 - X0;
 
 const EASE = 0.08;
 const DOCK_DELAY_MS = 500;
-/** Dock transition (900ms) plus the buttons' transition delay, see index.html. */
-const ENTER_READY_MS = 900 + 600;
+/** Buttons' transition delay plus duration, see `.enter` in index.html. */
+const ENTER_READY_MS = 1000 + 600;
 const FADE_MS = 600;
 
 /** What the visitor chose on the enter buttons. */
