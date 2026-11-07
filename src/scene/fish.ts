@@ -211,6 +211,8 @@ export class Fish {
   private readonly cursor = new THREE.Vector2();
   private readonly uniforms: SharedUniforms;
   private readonly baseDir: THREE.Vector3;
+  /** When set, update() places the fish here instead of hovering. */
+  private override: { pos: THREE.Vector3; dir: THREE.Vector3 } | null = null;
 
   private constructor(model: THREE.Object3D, centre: THREE.Vector3, opts: FishOptions) {
     const { reducedMotion } = opts;
@@ -278,9 +280,31 @@ export class Fish {
     });
   }
 
+  /**
+   * Take the fish off its hover: put it at `pos` with its nose along `dir`
+   * (world units). Used by the dive. Pass null to resume hovering.
+   */
+  steer(pos: THREE.Vector3 | null, dir?: THREE.Vector3): void {
+    if (!pos || !dir) {
+      this.override = null;
+      return;
+    }
+    if (!this.override) this.override = { pos: pos.clone(), dir: dir.clone() };
+    else {
+      this.override.pos.copy(pos);
+      this.override.dir.copy(dir);
+    }
+  }
+
   /** `pointer` is in -1..1 (x right, y up); it is damped inside. */
   update(time: number, dt: number, pointer: THREE.Vector2): void {
     this.uniforms.uTime.value = time;
+    if (this.override) {
+      this.root.position.copy(this.override.pos);
+      this.uniforms.uLook.value.set(0, 0);
+      this.face(_dir.copy(this.override.dir).normalize(), 0);
+      return;
+    }
     if (this.reducedMotion || dt <= 0) return;
 
     this.cursor.lerp(pointer, 1 - Math.exp(-dt / CURSOR_TAU));

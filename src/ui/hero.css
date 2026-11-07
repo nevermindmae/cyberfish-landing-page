@@ -67,7 +67,8 @@ html[data-layout='mirror'] .hero {
     right: auto;
     left: calc(var(--frame-inset) + 12px);
     top: auto;
-    bottom: calc(var(--frame-inset) + 24px);
+    /* Leaves room for the centred CTA underneath. */
+    bottom: calc(var(--frame-inset) + 96px);
     transform: translateY(12px);
     width: min(440px, calc(100vw - 2 * var(--frame-inset) - 24px));
     max-width: none;
@@ -81,7 +82,7 @@ html[data-layout='mirror'] .hero {
 @media (max-width: 480px) {
   .hero {
     left: 16px;
-    bottom: 28px;
+    bottom: 96px;
   }
 
   .hero-lead,

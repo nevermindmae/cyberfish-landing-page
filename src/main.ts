@@ -2,6 +2,7 @@ import './ui/tokens.css';
 import './ui/base.css';
 import './ui/nav.css';
 import './ui/hero.css';
+import './ui/cta.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { CyberScene } from './scene';
@@ -56,6 +57,12 @@ if (mirrorLayout) document.documentElement.dataset.layout = 'mirror';
 document.documentElement.dataset.facing = fishFacing;
 
 const scene = new CyberScene(root, { reducedMotion, mobile, fishSide, fishFacing });
+// Dev: ?diveslow=4 plays the dive at quarter speed, and exposes the scene.
+const diveSlow = Number(params.get('diveslow'));
+if (import.meta.env.DEV && diveSlow > 1) {
+  scene.diveTimeScale = 1 / diveSlow;
+  (window as unknown as { __scene: CyberScene }).__scene = scene;
+}
 loader.setProgress(0.2);
 
 try {
@@ -80,3 +87,23 @@ loader.done.then(({ sound }) => {
   sfx.setEnabled(sound);
   if (sound) sfx.play('confirm2');
 });
+
+// "Deploy The Decoy?": dive under. The HUD sinks away, the camera goes
+// through the water, and once the frame is black a plain black screen takes
+// over (the next chapter of the page goes here).
+const deploy = document.getElementById('deploy') as HTMLButtonElement | null;
+if (deploy) {
+  deploy.addEventListener('pointerenter', () => sfx.play('hover'));
+  deploy.addEventListener('focus', () => sfx.play('hover'));
+  deploy.addEventListener('click', async () => {
+    const html = document.documentElement;
+    if ('diving' in html.dataset) return;
+    html.dataset.diving = '';
+    deploy.disabled = true;
+    sfx.play('dive');
+    await scene.dive();
+    html.dataset.dived = '';
+    // Let the black screen's fade land before the canvas stops updating.
+    setTimeout(() => scene.stop(), 500);
+  });
+}

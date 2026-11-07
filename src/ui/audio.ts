@@ -4,13 +4,14 @@
  * and the preference is remembered in localStorage and mirrored on
  * `html[data-sound]` for CSS.
  */
-export type SfxName = 'hover' | 'confirm1' | 'confirm2' | 'error';
+export type SfxName = 'hover' | 'confirm1' | 'confirm2' | 'error' | 'dive';
 
 const FILES: Record<SfxName, string> = {
   hover: '/sfx/hover.mp3',
   confirm1: '/sfx/confirm-1.mp3',
   confirm2: '/sfx/confirm-2.mp3',
   error: '/sfx/error.mp3',
+  dive: '/sfx/dive.mp3',
 };
 
 const GAIN: Record<SfxName, number> = {
@@ -18,6 +19,7 @@ const GAIN: Record<SfxName, number> = {
   confirm1: 0.7,
   confirm2: 0.7,
   error: 0.6,
+  dive: 0.85,
 };
 
 const STORAGE_KEY = 'cyberfish.sound';

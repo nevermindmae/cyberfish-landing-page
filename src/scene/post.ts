@@ -73,6 +73,11 @@ export class Post {
         uTime: { value: 0 },
         uGrain: { value: 0.06 },
         uVignette: { value: 0.45 },
+        uDiveTime: { value: 0 },
+        uWobble: { value: 0 },
+        uFlash: { value: 0 },
+        uDeep: { value: 0 },
+        uDark: { value: 0 },
       },
       vertexShader: GRAIN_VERT,
       fragmentShader: grainFrag,
@@ -83,6 +88,16 @@ export class Post {
   setSize(width: number, height: number): void {
     this.composer.setSize(width, height);
     this.bloom.setSize(Math.max(1, width), Math.max(1, height));
+  }
+
+  /** Dive transition state, all 0..1 except the clock. */
+  setDive(d: { time: number; wobble: number; flash: number; deep: number; dark: number }): void {
+    const u = this.grain.uniforms;
+    u.uDiveTime.value = d.time;
+    u.uWobble.value = d.wobble;
+    u.uFlash.value = d.flash;
+    u.uDeep.value = d.deep;
+    u.uDark.value = d.dark;
   }
 
   render(time: number): void {
