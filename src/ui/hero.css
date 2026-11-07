@@ -5,10 +5,12 @@
 .hero {
   position: fixed;
   z-index: 4;
-  left: calc(var(--frame-inset) + 12px);
+  /* Right edge of the copy sits just short of the fish's nose (~46vw). */
+  right: 57vw;
   top: 50%;
   transform: translateY(calc(-50% + 12px));
-  width: min(560px, 44vw);
+  width: max-content;
+  max-width: calc(43vw - var(--frame-inset) - 12px);
   margin: 0;
   pointer-events: none;
   opacity: 0;
@@ -47,10 +49,13 @@ html[data-entered] .hero {
 
 @media (max-aspect-ratio: 1/1) {
   .hero {
+    right: auto;
+    left: calc(var(--frame-inset) + 12px);
     top: auto;
     bottom: calc(var(--frame-inset) + 24px);
     transform: translateY(12px);
     width: min(440px, calc(100vw - 2 * var(--frame-inset) - 24px));
+    max-width: none;
   }
 
   html[data-entered] .hero {
