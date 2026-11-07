@@ -37,11 +37,11 @@ def link(obj):
 
 # ------------------------------------------------------------------ body def
 Y_NOSE = 6.2; L = 4.0
-H  = [(0, 0.0), (0.014, 0.13), (0.04, 0.23), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
+H  = [(0, 0.0), (0.007, 0.09), (0.04, 0.23), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
       (0.45, 0.70), (0.6, 0.58), (0.75, 0.42), (0.9, 0.27), (1.0, 0.21)]
-Wd = [(0, 0.0), (0.014, 0.22), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
+Wd = [(0, 0.0), (0.007, 0.15), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
       (0.45, 0.48), (0.6, 0.38), (0.75, 0.26), (0.9, 0.15), (1.0, 0.09)]
-ZC = [(0, -0.20), (0.04, -0.14), (0.08, -0.09), (0.15, -0.03), (0.4, 0.0), (1.0, 0.06)]
+ZC = [(0, -0.27), (0.04, -0.19), (0.08, -0.11), (0.15, -0.04), (0.4, 0.0), (1.0, 0.06)]
 
 def surf(t, ang):
     """Straight body surface. ang: 0 = belly, +pi = back (via +x side)."""
@@ -53,7 +53,7 @@ def surf(t, ang):
     # robotic muzzle: the cross-section blends from a superellipse (boxy, n=3.6) at the
     # nose to a plain ellipse (n=2) by t = 0.24, so the head reads as a machined housing
     f = min(max(t / 0.24, 0.0), 1.0); f = f * f * (3 - 2 * f)
-    n = 3.6 * (1 - f) + 2.0 * f; e = 2.0 / n
+    n = 2.9 * (1 - f) + 2.0 * f; e = 2.0 / n
     sx = math.copysign(abs(s) ** e, s); cz = math.copysign(abs(c) ** e, c)
     return Vector((wx * sx, Y_NOSE - L * t, zc - hz * cz))
 
@@ -224,7 +224,7 @@ if coll is None:
 
 # ------------------------------------------------------------------ body mesh
 NT, NA = 64, 40
-T0 = 0.014
+T0 = 0.007
 def t_of(i): return T0 + (1 - T0) * (i / NT) ** 1.15
 grid = [[surf(t_of(i), -math.pi + 2 * math.pi * j / NA) for j in range(NA)] for i in range(NT + 1)]
 # UV layout: the bottom strip (v < PLATE_H) is a separate island for the flat front plate (a disc of
@@ -234,7 +234,7 @@ body_uv = lambda i, j: (j / NA, PLATE_H + (1 - PLATE_H) * t_of(i))
 def plate_rim_uv(j):
     ang = -math.pi + 2 * math.pi * j / NA
     return (0.5 + PLATE_R * math.sin(ang), PLATE_C - PLATE_R * math.cos(ang))
-nose = Vector((0, Y_NOSE - L * (T0 - 0.003), spline(ZC, T0)))   # flat, very slightly dished front plate
+nose = Vector((0, Y_NOSE - L * (T0 - 0.004), spline(ZC, T0)))   # small blunt tip plate
 tail_end = Vector((0, Y_NOSE - L, spline(ZC, 1)))
 body_me = mesh_from_grid("CF_Body", grid, body_uv, close_u=True,
                          caps=[(nose, 0, (0.5, PLATE_C), plate_rim_uv), (tail_end, NT, (0.5, 1.0))], xform=pose_spine)
@@ -326,11 +326,11 @@ for sgn in (1, -1):
     q = n.to_track_quat('Z', 'Y').to_matrix().to_4x4()
     rig = pose_rigid_fn(p.y)
     sfx = ".L" if sgn > 0 else ".R"
-    M = Matrix.Translation(p - n * 0.028) @ q
+    M = Matrix.Translation(p - n * 0.036) @ q
     me = mesh_from_grid("CF_Eye" + sfx, sphere_grid(0.09), lambda i, j: (j / 32, i / 16), close_u=True,
                         xform=lambda v, M=M, rig=rig: rig(M @ v))
     eye = bpy.data.objects.new("CF_Eye" + sfx, me); link(eye); eyes.append(eye)
-    M = Matrix.Translation(p + n * 0.008) @ q
+    M = Matrix.Translation(p + n * 0.004) @ q
     me = mesh_from_grid("CF_EyeRing" + sfx, torus_grid(0.088, 0.007), lambda i, j: (i / 48, j / 10), close_u=True, close_v=True,
                         xform=lambda v, M=M, rig=rig: rig(M @ v))
     ring = bpy.data.objects.new("CF_EyeRing" + sfx, me); link(ring); eyes.append(ring)

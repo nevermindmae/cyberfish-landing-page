@@ -126,29 +126,35 @@ def band_v(va, vb, soft=0.003):
 def band_du(a, b, soft=0.004):
     return smoothstep(a - soft, a, DU) * (1 - smoothstep(b, b + soft, DU))
 
-# straight machined seams (no organic curves): double gill ring, ring behind the eyes, snout cap ring
-grooves = np.maximum(groove_v(0.160, 0.0028), groove_v(0.174, 0.0022))
-grooves = np.maximum(grooves, groove_v(0.112, 0.0026))
-grooves = np.maximum(grooves, groove_v(0.034, 0.0024))
-grooves = np.maximum(grooves, groove_u(0.5, 0.0022, 0.034, 0.112))                                # chin seam
-grooves = np.maximum(grooves, groove_u(0.0, 0.0022, 0.034, 0.112))                                # crown seam
-for ur in (0.26, 0.74):                                                                             # straight jaw lines
-    grooves = np.maximum(grooves, groove_u(ur, 0.0022, 0.022, 0.160))
-for ur in (0.25, 0.75, 0.17, 0.83):                                                                 # cheek panel splits
-    grooves = np.maximum(grooves, groove_u(ur, 0.0020, 0.114, 0.160))
+# armour plates: ring seams split the head into shingled segments, each a hair lower than the one in front
+seams_v = (0.052, 0.102)
+grooves = np.maximum(groove_v(0.160, 0.0028), groove_v(0.174, 0.0022))          # double gill ring
+for sv in seams_v:
+    grooves = np.maximum(grooves, groove_v(sv, 0.0026))
+plate_step = sum(smoothstep(sv, sv + 0.004, V) for sv in seams_v) * 0.12
+# crown ridge: a raised narrow strip along the top of the head with a status light down its centre
+ridge = smoothstep(0.455, 0.465, DU) * band_v(0.018, 0.158, 0.003)
+grooves = np.maximum(grooves, np.exp(-((DU - 0.46) / 0.0022) ** 2) * band_v(0.018, 0.158, 0.001))
+status = np.exp(-((np.minimum(U, 1 - U)) / 0.0014) ** 2) * band_v(0.030, 0.150, 0.002)
+# jaw / cheek panel splits (straight, along the body axis)
+for ur in (0.26, 0.74):
+    grooves = np.maximum(grooves, groove_u(ur, 0.0022, 0.03, 0.160))
+grooves = np.maximum(grooves, groove_u(0.5, 0.0022, 0.03, 0.160))                 # chin seam
+# mouth: a short straight slit on the underside of the snout — where a fish mouth is, not a face
+grooves = np.maximum(grooves, np.exp(-((V - 0.020) / 0.0026) ** 2) * (1 - smoothstep(0.055, 0.075, DU)))
 
-# visor: a recessed dark glossy band across the upper head that houses both eyes
-visor = band_v(0.054, 0.104, 0.003) * smoothstep(0.285, 0.305, DU)
-visor_edge = np.maximum(np.exp(-((V - 0.054) / 0.0018) ** 2), np.exp(-((V - 0.104) / 0.0018) ** 2)) * smoothstep(0.285, 0.305, DU)
-visor_edge = np.maximum(visor_edge, np.exp(-((DU - 0.295) / 0.0018) ** 2) * band_v(0.054, 0.104, 0.001))
-grooves = np.maximum(grooves, visor_edge)
-
-# crown status line + two square sensor ports behind the visor
-status = np.exp(-((np.minimum(U, 1 - U)) / 0.0014) ** 2) * band_v(0.040, 0.100, 0.002)
+# eye pods: dark glossy teardrop housings, pointed toward the tail, that the eye spheres sit in
+pods = np.zeros_like(U); pod_edge = np.zeros_like(U)
+for sgn in (-1, 1):
+    du = (U - (0.5 + sgn * 0.33)) / 0.042
+    dv = (V - 0.072) / 0.036
+    dvs = dv * (1 - 0.66 * np.clip(dv, 0, 1))              # stretch the back half into a point
+    rr = np.sqrt(du * du + dvs * dvs)
+    pods = np.maximum(pods, 1 - smoothstep(0.96, 1.04, rr))
+    pod_edge = np.maximum(pod_edge, np.exp(-((rr - 1.0) / 0.06) ** 2))
+grooves = np.maximum(grooves, pod_edge * 0.8)
 ports = np.zeros_like(U)
-for sgn in (1, -1):
-    ports = np.maximum(ports, (1 - smoothstep(0.006, 0.008, np.abs(U - (0.5 + sgn * 0.44)))) * band_v(0.122, 0.136, 0.0015))
-face = visor            # kept name: used below for recess / metal
+face = pods            # kept name: used below for recess / metal
 head_mask = 1 - smoothstep(0.16, 0.2, V)
 
 # --- circuit traces (belly): PCB-style router on a lattice, no crossings, 1-cell clearance ---
@@ -246,7 +252,7 @@ for sgn in (-1, 1):   # two sensor dots behind each eye
 
 # --- height -> normal ----------------------------------------------------------
 height = sc_h * sc_amp * 1.0
-height = height - grooves * 0.9 - face * 0.45 - ports * 0.5 + circuit * 0.25 + dots * 0.4
+height = height - grooves * 0.9 - face * 0.5 - plate_step + ridge * 0.35 + circuit * 0.25 + dots * 0.4
 noise = rng.normal(0, 1, (H // 8, W // 8)).astype(np.float32)
 noise = np.kron(noise, np.ones((8, 8), np.float32))
 height = height + noise * 0.01
@@ -267,17 +273,12 @@ base = base * (1 - micro[..., None] * 0.6) + np.array([0.55, 0.85, 1.0]) * micro
 cmix = circuit[..., None]
 base = base * (1 - cmix) + np.array([0.62, 0.90, 1.0]) * cmix
 base = base * (1 - grooves[..., None] * 0.55)
-base = base * (1 - face[..., None] * 0.80) + np.array([0.035, 0.045, 0.085]) * face[..., None] * 0.80   # dark glossy visor
+base = base * (1 - face[..., None] * 0.85) + np.array([0.035, 0.045, 0.085]) * face[..., None] * 0.85   # dark glossy eye pods
+base = base * (1 - ridge[..., None] * 0.06)
 dark = ports
 base = base * (1 - dark[..., None]) + np.array([0.03, 0.04, 0.07]) * dark[..., None]
 base = base * (1 - status[..., None] * 0.5) + np.array([0.5, 0.85, 1.0]) * status[..., None] * 0.5
 base = base * (1 - dots[..., None]) + np.array([0.6, 0.9, 1.0]) * dots[..., None]
-# eye sockets darker ring on the head top sides
-# (eyes are separate meshes; the texture just darkens their seat)
-for sgn in (-1, 1):
-    seat = np.exp(-(((U - (0.5 + sgn * 0.33)) / 0.03) ** 2 + ((V - 0.072) / 0.03) ** 2))
-    base = base * (1 - seat[..., None] * 0.5)
-
 # --- emissive --------------------------------------------------------------------
 cyan = np.array([0.30, 0.72, 1.0])
 em = cyan * (circuit ** 1.0)[..., None] * (0.55 + 0.45 * belly[..., None])
@@ -305,15 +306,10 @@ def pbox(x0, x1, y0, y1, soft=1.5):
             smoothstep(y0 - soft * ps, y0, py) * (1 - smoothstep(y1, y1 + soft * ps, py)))
 # intake grille: three parallel horizontal slits, the middle one lit; no face-like features
 p_slot = np.zeros_like(U)
-for gy in (-0.20, 0.0, 0.20):
-    p_slot = np.maximum(p_slot, pbox(-0.58, 0.58, gy - 0.035, gy + 0.035))
-p_core = np.exp(-(py / (1.2 * ps)) ** 2) * (1 - smoothstep(0.50, 0.56, np.abs(px)))             # glowing core in the middle slit
-p_bevel = smoothstep(0.86, 0.94, pr)                                                            # outer chamfer
-p_ring = np.exp(-((pr - 0.80) / (1.3 * ps)) ** 2)                                               # seam ring
+p_core = np.zeros_like(U)
+p_bevel = np.zeros_like(U)
+p_ring = np.zeros_like(U)                                                                       # plain tip plate
 p_sensor = np.zeros_like(U); p_sensor_glow = np.zeros_like(U)                                   # four recessed bolts near the rim
-for bx, by in ((-0.60, -0.60), (0.60, -0.60), (-0.60, 0.60), (0.60, 0.60)):
-    d = np.sqrt((px - bx) ** 2 + (py - by) ** 2)
-    p_sensor = np.maximum(p_sensor, 1 - smoothstep(0.065, 0.065 + 1.5 * ps, d))
 p_vents = np.zeros_like(U)
 p_dark = np.clip(p_slot + p_sensor * 0.55 + p_vents, 0, 1)
 plate_h = -p_slot * 1.6 - p_vents * 0.8 - p_sensor * 0.6 - p_ring * 0.7 - p_bevel * 0.5
