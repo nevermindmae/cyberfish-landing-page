@@ -237,6 +237,8 @@ export class Fish {
       // kind / side uniforms. Textures stay shared.
       const source = Array.isArray(o.material) ? o.material[0] : o.material;
       const mat = source.clone();
+      // Scene fog is the water haze; the fish is far inside the fog's near.
+      mat.fog = false;
       if (mat.transparent) {
         // Blended fins, drawn after the body. They DO write depth (Blender's
         // "no transparency overlap"): otherwise a fin's own folds and
