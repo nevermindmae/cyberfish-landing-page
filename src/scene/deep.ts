@@ -85,6 +85,8 @@ const LID_CLIP = 'DK_LidOpen';
 const LID_OPEN_AT = 3.4;
 /** The part the callout points at: the Pi's heatsink, mid-board. */
 const ANCHOR_MESH = 'DK_Pi_sink';
+/** The unit's outer shell, for pointer hit-testing (not the board's parts). */
+const HIT_MESHES = new Set(['DK_CaseBody', 'DK_Lid']);
 
 export class Deep {
   readonly root = new THREE.Group();
@@ -105,6 +107,8 @@ export class Deep {
   /** Mesh the callout points at, and the point on it (local space). */
   private anchorMesh: THREE.Mesh | null = null;
   private readonly anchorLocal = new THREE.Vector3();
+  private readonly hitMeshes: THREE.Mesh[] = [];
+  private readonly hits: THREE.Intersection[] = [];
 
   constructor(opts: DeepOptions) {
     const layers = opts.mobile ? RAY_LAYERS.slice(0, 2) : RAY_LAYERS;
@@ -171,6 +175,7 @@ export class Deep {
         bb.getCenter(this.anchorLocal).setY(bb.max.y);
         this.anchorMesh = o;
       }
+      if (HIT_MESHES.has(o.name)) this.hitMeshes.push(o);
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
         // The deep's fog is tuned for the water, not for a thing 6 m away.
@@ -233,6 +238,14 @@ export class Deep {
     mesh.updateWorldMatrix(true, false);
     mesh.localToWorld(out.copy(this.anchorLocal));
     return true;
+  }
+
+  /** Does this ray (from the pointer) touch the unit's case or lid? */
+  hitTest(ray: THREE.Raycaster): boolean {
+    if (!this.hitMeshes.length || !this.device?.parent?.visible) return false;
+    this.hits.length = 0;
+    ray.intersectObjects(this.hitMeshes, false, this.hits);
+    return this.hits.length > 0;
   }
 
   /**

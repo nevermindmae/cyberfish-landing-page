@@ -200,6 +200,10 @@ export class CyberScene {
   onDeviceAnchor: ((anchor: DeviceAnchor | null) => void) | null = null;
   private readonly anchorWorld = new THREE.Vector3();
   private anchorShown = false;
+  /** The mouse moves onto (true) or off (false) the unit in the deep. */
+  onDeviceHover: ((over: boolean) => void) | null = null;
+  private readonly raycaster = new THREE.Raycaster();
+  private deviceHovered = false;
 
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
@@ -654,7 +658,9 @@ export class CyberScene {
     this.camera.lookAt(this.lookTarget);
     this.camera.rotateY(-this.parallax.x * DEEP_PARALLAX_TILT);
     this.camera.rotateX(this.parallax.y * DEEP_PARALLAX_TILT * 0.6);
+    this.camera.updateMatrixWorld();
     this.reportAnchor(deep);
+    this.reportHover(deep);
 
     // Leaving: back into the black, then hand over to the sea.
     if (this.surfacing) {
@@ -687,7 +693,6 @@ export class CyberScene {
       this.anchorShown = false;
       return;
     }
-    this.camera.updateMatrixWorld();
     p.project(this.camera);
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.anchorShown = true;
@@ -698,6 +703,16 @@ export class CyberScene {
     });
   }
 
+  /** Mouse over the unit? Reported on change only. */
+  private reportHover(deep: Deep): void {
+    if (!this.onDeviceHover) return;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const over = deep.hitTest(this.raycaster);
+    if (over === this.deviceHovered) return;
+    this.deviceHovered = over;
+    this.onDeviceHover(over);
+  }
+
   /** The frame is black: put the sea back exactly as it was before the dive. */
   private leaveDeep(deep: Deep, s: { resolve: () => void }): void {
     this.scene.remove(deep.root);
@@ -706,6 +721,8 @@ export class CyberScene {
     this.surfacing = null;
     if (this.anchorShown) this.onDeviceAnchor?.(null);
     this.anchorShown = false;
+    if (this.deviceHovered) this.onDeviceHover?.(false);
+    this.deviceHovered = false;
 
     this.ocean.mesh.visible = true;
     this.sky.mesh.visible = true;

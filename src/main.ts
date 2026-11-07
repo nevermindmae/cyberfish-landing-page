@@ -83,6 +83,10 @@ if (calloutEl) {
   const callout = new Callout(calloutEl);
   scene.onDeviceAnchor = (a) => callout.place(a);
 }
+// The unit answers the cursor like a button does.
+scene.onDeviceHover = (over) => {
+  if (over) void sfx.play('hover');
+};
 
 try {
   await scene.loadFish((f) => loader.setProgress(0.2 + f * 0.7));
