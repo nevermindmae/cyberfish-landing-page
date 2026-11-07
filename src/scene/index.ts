@@ -6,6 +6,7 @@ import { Fish, type ProgressCallback } from './fish';
 import { Sky } from './sky';
 import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
+import { Floor } from './floor';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
 /**
@@ -77,6 +78,11 @@ const DEEP_FADE_IN = 3.2;
 const DEVICE_URL = '/models/dekoi.glb';
 const DEEP_PARALLAX_SHIFT = new THREE.Vector2(1.4, 0.8);
 const DEEP_PARALLAX_TILT = 0.05;
+/** Where the lens aims in the deep, relative to its rest point. */
+const DEEP_LOOK = new THREE.Vector3(0, 0, -10);
+/** Particles in the floor's fish. */
+const FISH_POINTS = 26000;
+const FISH_POINTS_MOBILE = 9000;
 /** Back to the top: the deep goes dark, then the sea returns out of black. */
 const SURFACE_FADE_OUT = 1.2;
 const SURFACE_FADE_IN = 2.6;
@@ -177,14 +183,21 @@ export class CyberScene {
   private resizeObserver: ResizeObserver;
   private readonly focus = FOCUS.clone();
   private diving: DiveState | null = null;
-  /** The chapter below the surface, once the dive has handed over to it. */
+  /** The chapters below the surface: the deep (after the dive) and the floor. */
   deep: Deep | null = null;
-  /** Seconds since the hand-off, and the camera's rest point down there. */
+  floor: Floor | null = null;
+  /** Seconds since the current chapter's hand-off, and the lens's rest point below. */
   private deepT = 0;
   private readonly deepBase = new THREE.Vector3();
-  /** Leaving the deep: its fade to black, then the sea's fade back in. */
-  private surfacing: { t: number; resolve: () => void } | null = null;
+  /** A chapter change in progress: its fade to black, then the hand-over. */
+  private transition: { kind: 'surface' | 'descend' | 'ascend'; t: number; resolve: () => void } | null =
+    null;
+  /** The sea's fade back in after surfacing. */
   private risingT = -1;
+  /** The fish's surface as points, for the floor; sampled on first use. */
+  private fishCloud: Float32Array | null = null;
+  /** True while a mouse has moved over the page (parallax and the floor's stir). */
+  private pointerLive = false;
   /** The unit's GLB, loaded once and reused across visits to the deep. */
   private device: Promise<GLTF | null> | null = null;
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
@@ -327,7 +340,7 @@ export class CyberScene {
    * surfaces out of that black on its own.
    */
   dive({ onSplash }: DiveOptions = {}): Promise<void> {
-    if (this.diving || this.deep) return Promise.resolve();
+    if (this.diving || this.deep || this.floor) return Promise.resolve();
     // The unit is wanted a few seconds from now; start fetching it.
     this.loadDevice();
     return new Promise((resolve) => {
@@ -378,9 +391,28 @@ export class CyberScene {
    * with the picture.
    */
   surface(): Promise<void> {
-    if (!this.deep || this.surfacing) return Promise.resolve();
+    if ((!this.deep && !this.floor) || this.transition) return Promise.resolve();
     return new Promise((resolve) => {
-      this.surfacing = { t: 0, resolve };
+      this.transition = { kind: 'surface', t: 0, resolve };
+    });
+  }
+
+  /**
+   * From the deep down to the floor: the deep fades to black, the floor
+   * comes up out of it. Resolves at the black frame.
+   */
+  descend(): Promise<void> {
+    if (!this.deep || this.transition) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.transition = { kind: 'descend', t: 0, resolve };
+    });
+  }
+
+  /** From the floor back up to the deep. Resolves at the black frame. */
+  ascend(): Promise<void> {
+    if (!this.floor || this.transition) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.transition = { kind: 'ascend', t: 0, resolve };
     });
   }
 
@@ -404,6 +436,7 @@ export class CyberScene {
     this.post.dispose();
     this.ocean.dispose();
     this.deep?.dispose();
+    this.floor?.dispose();
     this.renderer.dispose();
   }
 
@@ -413,10 +446,12 @@ export class CyberScene {
       (e.clientX / window.innerWidth) * 2 - 1,
       -((e.clientY / window.innerHeight) * 2 - 1),
     );
+    this.pointerLive = true;
   };
 
   private readonly onPointerLeave = (): void => {
     this.pointer.set(0, 0);
+    this.pointerLive = false;
   };
 
   private readonly resize = (): void => {
@@ -447,8 +482,8 @@ export class CyberScene {
   };
 
   protected update(dt: number): void {
-    if (this.deep) {
-      this.updateDeep(this.deep, dt);
+    if (this.deep || this.floor) {
+      this.updateBelow(dt);
       return;
     }
 
@@ -605,18 +640,13 @@ export class CyberScene {
   /** The frame is black: swap the sea for the deep, then let the caller know. */
   private finishDive(d: DiveState): void {
     this.diving = null;
+    this.goBelow();
     this.enterDeep();
     d.resolve();
   }
 
+  /** The first chapter below the surface. */
   private enterDeep(): void {
-    this.ocean.mesh.visible = false;
-    this.sky.mesh.visible = false;
-    if (this.fish) this.fish.root.visible = false;
-    this.renderer.setClearColor(DEEP_BG, 1);
-
-    // Rest where the dive left the lens (its own parallax is re-based here).
-    this.deepBase.set(CAMERA_POS.x, this.camera.position.y, CAMERA_POS.z);
     const deep = new Deep({
       mobile: this.opts.mobile,
       pixelRatio: this.renderer.getPixelRatio(),
@@ -633,17 +663,67 @@ export class CyberScene {
       await this.renderer.compileAsync(deep.root, this.camera, this.scene);
       if (this.deep === deep) deep.reveal();
     });
+    this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
+  }
+
+  /** The last chapter: the seabed, with the fish as particles. */
+  private enterFloor(): void {
+    const floor = new Floor({
+      mobile: this.opts.mobile,
+      pixelRatio: this.renderer.getPixelRatio(),
+      fishPoints: this.fishPoints(),
+    });
+    floor.root.position.copy(this.deepBase);
+    this.scene.add(floor.root);
+    this.floor = floor;
+    this.deepT = 0;
+    this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
+  }
+
+  /** The fish's surface as points, sampled once. */
+  private fishPoints(): Float32Array | null {
+    if (!this.fish) return null;
+    this.fishCloud ??= this.fish.samplePoints(
+      this.opts.mobile ? FISH_POINTS_MOBILE : FISH_POINTS,
+    );
+    return this.fishCloud;
+  }
+
+  /** Swap the sea out for the chapters below it. */
+  private goBelow(): void {
+    this.ocean.mesh.visible = false;
+    this.sky.mesh.visible = false;
+    if (this.fish) this.fish.root.visible = false;
+    this.renderer.setClearColor(DEEP_BG, 1);
+    // Rest where the dive left the lens (its own parallax is re-based here).
+    this.deepBase.set(CAMERA_POS.x, this.camera.position.y, CAMERA_POS.z);
     // The sky environment is far too bright for metal 6 m under the sea, and
     // the sea's own lights would grey out the unit's black case.
     this.scene.environmentIntensity = 0.12;
     for (const l of this.heroLights) l.visible = false;
-    this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
   }
 
-  /** Camera and fade-in for the chapter below the surface. */
-  private updateDeep(deep: Deep, dt: number): void {
+  private removeDeep(deep: Deep): void {
+    this.scene.remove(deep.root);
+    deep.dispose();
+    this.deep = null;
+    if (this.anchorShown) this.onDeviceAnchor?.(null);
+    this.anchorShown = false;
+    if (this.deviceHovered) this.onDeviceHover?.(false);
+    this.deviceHovered = false;
+  }
+
+  private removeFloor(floor: Floor): void {
+    this.scene.remove(floor.root);
+    floor.dispose();
+    this.floor = null;
+  }
+
+  /** Camera, content and fades for the chapters below the surface. */
+  private updateBelow(dt: number): void {
     this.deepT += dt;
-    deep.update(this.time, dt, this.deepT, this.camera.aspect);
+    const deep = this.deep;
+    const floor = this.floor;
 
     // Slower, wider parallax than above: the shaft layers give it depth.
     const kp = 1 - Math.exp(-dt * 1.8);
@@ -654,29 +734,50 @@ export class CyberScene {
       base.y + this.parallax.y * DEEP_PARALLAX_SHIFT.y,
       base.z,
     );
-    this.lookTarget.set(base.x, base.y, base.z - 10);
+    const look = floor ? floor.lookOffset : DEEP_LOOK;
+    this.lookTarget.copy(base).add(look);
     this.camera.lookAt(this.lookTarget);
     this.camera.rotateY(-this.parallax.x * DEEP_PARALLAX_TILT);
     this.camera.rotateX(this.parallax.y * DEEP_PARALLAX_TILT * 0.6);
     this.camera.updateMatrixWorld();
-    this.reportAnchor(deep);
-    this.reportHover(deep);
 
-    // Leaving: back into the black, then hand over to the sea.
-    if (this.surfacing) {
-      const s = this.surfacing;
-      s.t += dt;
-      const k = THREE.MathUtils.smoothstep(s.t / SURFACE_FADE_OUT, 0, 1);
-      this.post.setDive({ time: this.deepT, wobble: 0.3 * k, flash: 0, deep: k * 0.5, dark: k });
-      if (k >= 1) this.leaveDeep(deep, s);
+    if (deep) {
+      deep.update(this.time, dt, this.deepT, this.camera.aspect);
+      this.reportAnchor(deep);
+      this.reportHover(deep);
+    }
+    if (floor) {
+      let ray: THREE.Ray | null = null;
+      if (this.pointerLive) {
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+        ray = this.raycaster.ray;
+      }
+      floor.update(this.time, dt, this.camera, ray);
+    }
+
+    // Leaving this chapter: into the black, then hand over.
+    if (this.transition) {
+      const tr = this.transition;
+      tr.t += dt;
+      const k = THREE.MathUtils.smoothstep(tr.t / SURFACE_FADE_OUT, 0, 1);
+      const wobble = tr.kind === 'surface' ? 0.3 * k : 0;
+      this.post.setDive({ time: this.deepT, wobble, flash: 0, deep: k * 0.5, dark: k });
+      if (k < 1) return;
+      this.transition = null;
+      if (deep) this.removeDeep(deep);
+      if (floor) this.removeFloor(floor);
+      if (tr.kind === 'surface') this.returnToSea();
+      else if (tr.kind === 'descend') this.enterFloor();
+      else this.enterDeep();
+      tr.resolve();
       return;
     }
 
-    // Surface out of the black; the lens wobble settles with it.
+    // Surface out of the black; the lens wobble settles with it (deep only).
     const k = THREE.MathUtils.smoothstep(this.deepT / DEEP_FADE_IN, 0, 1);
     this.post.setDive({
       time: this.deepT,
-      wobble: 0.4 * (1 - k),
+      wobble: deep ? 0.4 * (1 - k) : 0,
       flash: 0,
       deep: 1 - k,
       dark: 1 - k,
@@ -714,16 +815,7 @@ export class CyberScene {
   }
 
   /** The frame is black: put the sea back exactly as it was before the dive. */
-  private leaveDeep(deep: Deep, s: { resolve: () => void }): void {
-    this.scene.remove(deep.root);
-    deep.dispose();
-    this.deep = null;
-    this.surfacing = null;
-    if (this.anchorShown) this.onDeviceAnchor?.(null);
-    this.anchorShown = false;
-    if (this.deviceHovered) this.onDeviceHover?.(false);
-    this.deviceHovered = false;
-
+  private returnToSea(): void {
     this.ocean.mesh.visible = true;
     this.sky.mesh.visible = true;
     this.ocean.churn = 0;
@@ -745,7 +837,6 @@ export class CyberScene {
     // update() puts the camera back at its rest; fade the sea in from here.
     this.risingT = 0;
     this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
-    s.resolve();
   }
 
   /** Look straight ahead from the current height, pitched up by CAMERA_PITCH_UP. */

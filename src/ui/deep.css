@@ -139,6 +139,107 @@ html[data-surfacing] .callout {
   transition: opacity 600ms ease 900ms;
 }
 
+/* Going down (html[data-descending]) and on the floor (html[data-floor]):
+   the deep's copy and callout are gone; they return when the visitor
+   comes back up and data-floor is removed. */
+html[data-descending] .deep-block,
+html[data-floor] .deep-block {
+  opacity: 0;
+  transform: none;
+  transition: opacity 500ms ease;
+}
+
+html[data-descending] .callout,
+html[data-floor] .callout {
+  opacity: 0;
+}
+
+/* "Continue": bottom centre of the deep, the way the CTA sits above. Set
+   like the back-to-top control (same mono and tracking), chevron bobbing.
+   Scrolling down does the same thing. */
+.descend {
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  bottom: calc(var(--frame-inset) + 18px);
+  transform: translate(-50%, 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  color: var(--text-mid);
+  font: 400 clamp(13px, 1.1vw, 15px) / 1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 14px rgba(6, 10, 20, 0.7);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 600ms ease,
+    transform 600ms ease,
+    color 200ms ease;
+}
+
+html[data-deep] .descend {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 1200ms ease 3200ms,
+    transform 1200ms cubic-bezier(0.2, 0.8, 0.2, 1) 3200ms,
+    color 200ms ease;
+}
+
+html[data-deep][data-surfacing] .descend,
+html[data-deep][data-descending] .descend,
+html[data-deep][data-floor] .descend {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+.descend-label {
+  white-space: nowrap;
+}
+
+.descend-arrow {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: descend-bob 2.4s ease-in-out infinite;
+}
+
+.descend:hover,
+.descend:focus-visible {
+  color: var(--white);
+  outline: none;
+}
+
+.descend:hover .descend-arrow,
+.descend:focus-visible .descend-arrow {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 8px rgba(46, 168, 255, 0.55));
+}
+
+@keyframes descend-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
 @media (max-aspect-ratio: 1/1) {
   .deep-copy {
     left: calc(var(--frame-inset) + 12px);
@@ -173,5 +274,15 @@ html[data-surfacing] .callout {
   .callout.on .callout-dot,
   .callout.on .callout-label {
     transition: none;
+  }
+
+  .descend,
+  html[data-deep] .descend {
+    transform: translate(-50%, 0);
+    transition: opacity 300ms;
+  }
+
+  .descend-arrow {
+    animation: none;
   }
 }

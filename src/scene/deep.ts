@@ -29,7 +29,7 @@ export interface DeepOptions {
  * and a band (centre and half-width, as a fraction of the distance, so
  * roughly a fraction of the frame's half-width) that always carries light.
  */
-interface RayLayer {
+export interface RayLayer {
   distance: number;
   angle: number;
   seed: number;
@@ -112,33 +112,17 @@ export class Deep {
 
   constructor(opts: DeepOptions) {
     const layers = opts.mobile ? RAY_LAYERS.slice(0, 2) : RAY_LAYERS;
-    for (const layer of layers) this.root.add(this.buildRays(layer));
+    for (const layer of layers) {
+      const rays = createRays(layer);
+      this.rayMaterials.push(rays.material);
+      this.geometries.push(rays.geometry);
+      this.root.add(rays.object);
+    }
 
-    this.moteMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uPixelRatio: { value: opts.pixelRatio },
-        uHalfHeight: { value: MOTE_HALF_HEIGHT },
-        uColor: { value: MOTE_COLOR.clone() },
-      },
-      vertexShader: motesVert,
-      fragmentShader: motesFrag,
-      transparent: true,
-      depthWrite: false,
-      // Tested against the unit's depth so the motes behind it do not show
-      // through its case (the water itself writes no depth).
-      depthTest: true,
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.OneFactor,
-      blendDst: THREE.OneFactor,
-    });
-    const motes = new THREE.Points(
-      this.buildMotes(opts.mobile ? MOTE_COUNT_MOBILE : MOTE_COUNT),
-      this.moteMaterial,
-    );
-    motes.frustumCulled = false;
-    motes.renderOrder = 2;
-    this.root.add(motes);
+    const motes = createMotes(opts.mobile ? MOTE_COUNT_MOBILE : MOTE_COUNT, opts.pixelRatio);
+    this.moteMaterial = motes.material;
+    this.geometries.push(motes.geometry);
+    this.root.add(motes.object);
 
     // Device rig and its lights. The shaft and mote shaders ignore lights,
     // so these are for the unit alone: a cool key from above on the lens
@@ -284,74 +268,109 @@ export class Deep {
     });
   }
 
-  private buildRays(layer: RayLayer): THREE.Mesh {
-    const height = layer.distance * RAY_PLANE_HEIGHT;
-    const width = layer.distance * RAY_PLANE_WIDTH;
-    const geometry = new THREE.PlaneGeometry(width, height);
-    this.geometries.push(geometry);
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uSeed: { value: layer.seed },
-        uAngle: { value: layer.angle },
-        uScale: { value: RAY_SCALE / layer.distance },
-        uIntensity: { value: layer.intensity },
-        uSize: { value: new THREE.Vector2(width, height) },
-        uAnchor: { value: layer.anchor * layer.distance },
-        uAnchorWidth: { value: layer.anchorWidth * layer.distance },
-        uColorDeep: { value: RAY_COLOR_DEEP.clone() },
-        uColorBright: { value: RAY_COLOR_BRIGHT.clone() },
-      },
-      vertexShader: raysVert,
-      fragmentShader: raysFrag,
-      transparent: true,
-      depthWrite: false,
-      // The shaft planes are well behind the unit; depth-tested so the
-      // light does not shine through its black case.
-      depthTest: true,
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.OneFactor,
-      blendDst: THREE.OneFactor,
-    });
-    this.rayMaterials.push(material);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.z = -layer.distance;
-    // Shafts come from above: sit the plane a little high so its bright end
-    // is at and beyond the top of the frame.
-    mesh.position.y = height * 0.12;
-    mesh.frustumCulled = false;
-    mesh.renderOrder = 1;
-    return mesh;
-  }
+}
 
-  private buildMotes(count: number): THREE.BufferGeometry {
-    const positions = new Float32Array(count * 3);
-    const seeds = new Float32Array(count * 4);
-    const sizes = new Float32Array(count);
-    const [near, far] = MOTE_DEPTH;
-    for (let i = 0; i < count; i++) {
-      const r = Math.random();
-      // Mostly small sparks; some bright enough to bloom; a few big soft
-      // bokeh discs close to the lens.
-      const kind = r < 0.1 ? 2 : r < 0.24 ? 1 : 0;
-      const depth = kind === 2 ? near + Math.random() * 8 : near + Math.random() * (far - near);
-      // Wider spread further out, to keep the frustum filled.
-      const halfWidth = depth * 0.62 + 1.5;
-      positions[i * 3] = (Math.random() * 2 - 1) * halfWidth;
-      positions[i * 3 + 1] = (Math.random() * 2 - 1) * MOTE_HALF_HEIGHT;
-      positions[i * 3 + 2] = -depth;
-      seeds[i * 4] = Math.random();
-      seeds[i * 4 + 1] = Math.random();
-      seeds[i * 4 + 2] = Math.random();
-      seeds[i * 4 + 3] = kind;
-      sizes[i] =
-        kind === 2 ? 5 + Math.random() * 4 : kind === 1 ? 1.0 + Math.random() : 0.7 + Math.random() * 1.1;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4));
-    geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-    this.geometries.push(geometry);
-    return geometry;
+/** A built scene part: the object to add, and what to dispose. */
+export interface Part<T extends THREE.Object3D = THREE.Object3D> {
+  object: T;
+  material: THREE.ShaderMaterial;
+  geometry: THREE.BufferGeometry;
+}
+
+/**
+ * One layer of light shafts: an additive plane facing the camera at
+ * `layer.distance`, sized so parallax never shows an edge. Shared by the
+ * deep and the floor.
+ */
+export function createRays(layer: RayLayer): Part<THREE.Mesh> {
+  const height = layer.distance * RAY_PLANE_HEIGHT;
+  const width = layer.distance * RAY_PLANE_WIDTH;
+  const geometry = new THREE.PlaneGeometry(width, height);
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSeed: { value: layer.seed },
+      uAngle: { value: layer.angle },
+      uScale: { value: RAY_SCALE / layer.distance },
+      uIntensity: { value: layer.intensity },
+      uSize: { value: new THREE.Vector2(width, height) },
+      uAnchor: { value: layer.anchor * layer.distance },
+      uAnchorWidth: { value: layer.anchorWidth * layer.distance },
+      uColorDeep: { value: RAY_COLOR_DEEP.clone() },
+      uColorBright: { value: RAY_COLOR_BRIGHT.clone() },
+    },
+    vertexShader: raysVert,
+    fragmentShader: raysFrag,
+    transparent: true,
+    depthWrite: false,
+    // The shaft planes are well behind the unit; depth-tested so the
+    // light does not shine through its black case.
+    depthTest: true,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.z = -layer.distance;
+  // Shafts come from above: sit the plane a little high so its bright end
+  // is at and beyond the top of the frame.
+  mesh.position.y = height * 0.12;
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 1;
+  return { object: mesh, material, geometry };
+}
+
+/**
+ * Motes drifting in the water in front of the camera (motion is in the
+ * vertex shader; set `uTime`). Shared by the deep and the floor.
+ */
+export function createMotes(count: number, pixelRatio: number): Part<THREE.Points> {
+  const positions = new Float32Array(count * 3);
+  const seeds = new Float32Array(count * 4);
+  const sizes = new Float32Array(count);
+  const [near, far] = MOTE_DEPTH;
+  for (let i = 0; i < count; i++) {
+    const r = Math.random();
+    // Mostly small sparks; some bright enough to bloom; a few big soft
+    // bokeh discs close to the lens.
+    const kind = r < 0.1 ? 2 : r < 0.24 ? 1 : 0;
+    const depth = kind === 2 ? near + Math.random() * 8 : near + Math.random() * (far - near);
+    // Wider spread further out, to keep the frustum filled.
+    const halfWidth = depth * 0.62 + 1.5;
+    positions[i * 3] = (Math.random() * 2 - 1) * halfWidth;
+    positions[i * 3 + 1] = (Math.random() * 2 - 1) * MOTE_HALF_HEIGHT;
+    positions[i * 3 + 2] = -depth;
+    seeds[i * 4] = Math.random();
+    seeds[i * 4 + 1] = Math.random();
+    seeds[i * 4 + 2] = Math.random();
+    seeds[i * 4 + 3] = kind;
+    sizes[i] =
+      kind === 2 ? 5 + Math.random() * 4 : kind === 1 ? 1.0 + Math.random() : 0.7 + Math.random() * 1.1;
   }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4));
+  geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uPixelRatio: { value: pixelRatio },
+      uHalfHeight: { value: MOTE_HALF_HEIGHT },
+      uColor: { value: MOTE_COLOR.clone() },
+    },
+    vertexShader: motesVert,
+    fragmentShader: motesFrag,
+    transparent: true,
+    depthWrite: false,
+    // Tested against the unit's depth so the motes behind it do not show
+    // through its case (the water itself writes no depth).
+    depthTest: true,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+  });
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  points.renderOrder = 2;
+  return { object: points, material, geometry };
 }

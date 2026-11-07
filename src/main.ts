@@ -112,6 +112,8 @@ loader.done.then(({ sound }) => {
   if (!sound) sfx.startMusic();
 });
 
+const html = document.documentElement;
+
 // "Deploy The Decoy?": dive under. The HUD sinks away, the camera goes
 // through the water, and out of the black the deep surfaces (the scene
 // handles that itself); html[data-deep] brings the HUD back for it.
@@ -120,7 +122,6 @@ if (deploy) {
   deploy.addEventListener('pointerenter', () => sfx.play('hover'));
   deploy.addEventListener('focus', () => sfx.play('hover'));
   deploy.addEventListener('click', async () => {
-    const html = document.documentElement;
     if ('diving' in html.dataset) return;
     html.dataset.diving = '';
     deploy.disabled = true;
@@ -129,20 +130,73 @@ if (deploy) {
   });
 }
 
-// "Back to top": the deep goes dark and the sea returns. The HUD comes back
-// with it once the frame is black, and the decoy can be deployed again.
+// Chapters below the surface. html[data-deep] stays set for the whole
+// stretch below (the nav and "Back to top" key off it); html[data-floor]
+// marks the last chapter, and data-descending / data-ascending the fades
+// between them.
+const below = (): boolean => 'deep' in html.dataset;
+const changing = (): boolean =>
+  'surfacing' in html.dataset || 'descending' in html.dataset || 'ascending' in html.dataset;
+
+// Deep -> floor: "Continue", or a scroll down.
+const descend = async (): Promise<void> => {
+  if (!below() || 'floor' in html.dataset || changing()) return;
+  html.dataset.descending = '';
+  void sfx.play('confirm1');
+  await scene.descend();
+  delete html.dataset.descending;
+  html.dataset.floor = '';
+};
+
+// Floor -> deep: a scroll up.
+const ascend = async (): Promise<void> => {
+  if (!below() || !('floor' in html.dataset) || changing()) return;
+  html.dataset.ascending = '';
+  void sfx.play('confirm1');
+  await scene.ascend();
+  delete html.dataset.ascending;
+  delete html.dataset.floor;
+};
+
+const descendBtn = document.getElementById('descend') as HTMLButtonElement | null;
+if (descendBtn) {
+  descendBtn.addEventListener('pointerenter', () => sfx.play('hover'));
+  descendBtn.addEventListener('focus', () => sfx.play('hover'));
+  descendBtn.addEventListener('click', () => void descend());
+}
+
+// Wheel: a decisive scroll moves a chapter; small deltas are ignored so a
+// trackpad's drift does not flip chapters. One move per gesture.
+let wheelArmed = true;
+window.addEventListener(
+  'wheel',
+  (e) => {
+    if (!below() || changing()) return;
+    if (Math.abs(e.deltaY) < 30) return;
+    if (!wheelArmed) return;
+    wheelArmed = false;
+    setTimeout(() => (wheelArmed = true), 1200);
+    if (e.deltaY > 0) void descend();
+    else void ascend();
+  },
+  { passive: true },
+);
+
+// "Back to top": whichever chapter we are in goes dark and the sea returns.
+// The HUD comes back with it once the frame is black, and the decoy can be
+// deployed again.
 const backTop = document.getElementById('back-top') as HTMLButtonElement | null;
 if (backTop) {
   backTop.addEventListener('pointerenter', () => sfx.play('hover'));
   backTop.addEventListener('focus', () => sfx.play('hover'));
   backTop.addEventListener('click', async () => {
-    const html = document.documentElement;
-    if (!('deep' in html.dataset) || 'surfacing' in html.dataset) return;
+    if (!below() || changing()) return;
     html.dataset.surfacing = '';
     void sfx.play('confirm1');
     await scene.surface();
     delete html.dataset.diving;
     delete html.dataset.deep;
+    delete html.dataset.floor;
     delete html.dataset.surfacing;
     if (deploy) deploy.disabled = false;
   });

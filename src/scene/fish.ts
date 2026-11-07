@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
 
 /**
  * Straight (un-posed) fish from Blender. Nose at -Z, tail at +Z, dorsal +Y,
@@ -200,6 +201,32 @@ function kindFor(name: string): number {
   return KIND.body;
 }
 
+const _a = new THREE.Vector3();
+const _b = new THREE.Vector3();
+const _c = new THREE.Vector3();
+const _tri = new THREE.Triangle();
+
+/** Total triangle area of a mesh, in its own (scaled) world space. */
+function surfaceArea(mesh: THREE.Mesh): number {
+  const g = mesh.geometry;
+  const pos = g.getAttribute('position');
+  const index = g.getIndex();
+  const n = index ? index.count : pos.count;
+  let area = 0;
+  for (let i = 0; i < n; i += 3) {
+    const ia = index ? index.getX(i) : i;
+    const ib = index ? index.getX(i + 1) : i + 1;
+    const ic = index ? index.getX(i + 2) : i + 2;
+    _tri.set(
+      _a.fromBufferAttribute(pos, ia).applyMatrix4(mesh.matrixWorld),
+      _b.fromBufferAttribute(pos, ib).applyMatrix4(mesh.matrixWorld),
+      _c.fromBufferAttribute(pos, ic).applyMatrix4(mesh.matrixWorld),
+    );
+    area += _tri.getArea();
+  }
+  return area;
+}
+
 export class Fish {
   /** Add this to the scene. Position and orientation are driven by update(). */
   readonly root = new THREE.Group();
@@ -330,6 +357,38 @@ export class Fish {
     _dir.copy(BASE_DIR).applyAxisAngle(_up, yaw);
     _dir.y += pitch;
     this.face(_dir.normalize(), roll);
+  }
+
+  /**
+   * Points spread evenly over the fish's surface, in root space (the model's
+   * un-posed shape, centred on its pivot, nose toward -Z, ~6.1 units long).
+   * The floor chapter draws the fish from these.
+   */
+  samplePoints(count: number): Float32Array {
+    const meshes: THREE.Mesh[] = [];
+    this.root.updateWorldMatrix(true, true);
+    this.root.traverse((o) => {
+      if (o instanceof THREE.Mesh) meshes.push(o);
+    });
+    const areas = meshes.map(surfaceArea);
+    const total = areas.reduce((s, a) => s + a, 0);
+    const out = new Float32Array(count * 3);
+    const toRoot = this.root.matrixWorld.clone().invert();
+    let n = 0;
+    meshes.forEach((mesh, i) => {
+      const share = i === meshes.length - 1 ? count - n : Math.round((count * areas[i]) / total);
+      if (share <= 0) return;
+      const sampler = new MeshSurfaceSampler(mesh).build();
+      _m.copy(toRoot).multiply(mesh.matrixWorld);
+      for (let k = 0; k < share && n < count; k++, n++) {
+        sampler.sample(_pos);
+        _pos.applyMatrix4(_m);
+        out[n * 3] = _pos.x;
+        out[n * 3 + 1] = _pos.y;
+        out[n * 3 + 2] = _pos.z;
+      }
+    });
+    return out;
   }
 
   private face(dir: THREE.Vector3, roll: number): void {
