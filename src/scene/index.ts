@@ -759,6 +759,6 @@ export class CyberScene {
   }
 
   protected render(): void {
-    this.post.render(this.time);
+    this.post.render();
   }
 }

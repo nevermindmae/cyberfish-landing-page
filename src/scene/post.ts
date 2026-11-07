@@ -27,7 +27,6 @@ export class Post {
   readonly composer: EffectComposer;
   private readonly bloom: UnrealBloomPass;
   private readonly grain: ShaderPass;
-  private readonly reducedMotion: boolean;
 
   constructor(
     renderer: THREE.WebGLRenderer,
@@ -35,7 +34,6 @@ export class Post {
     camera: THREE.Camera,
     opts: PostOptions,
   ) {
-    this.reducedMotion = opts.reducedMotion;
     const size = renderer.getSize(new THREE.Vector2());
     const pr = renderer.getPixelRatio();
 
@@ -70,7 +68,6 @@ export class Post {
     this.grain = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        uTime: { value: 0 },
         uGrain: { value: 0.13 },
         uGrainSize: { value: pr },
         uVignette: { value: 0.45 },
@@ -101,9 +98,8 @@ export class Post {
     u.uDark.value = d.dark;
   }
 
-  render(time: number): void {
-    // Static grain under reduced motion; otherwise it flickers like film.
-    if (!this.reducedMotion) this.grain.uniforms.uTime.value = time % 100;
+  render(): void {
+    // The grain is static: a fixed texture over the picture, not a flicker.
     this.composer.render();
   }
 

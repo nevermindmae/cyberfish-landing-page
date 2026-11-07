@@ -3,7 +3,6 @@
 // of the final pixel value.
 
 uniform sampler2D tDiffuse;
-uniform float uTime;
 uniform float uGrain;
 uniform float uGrainSize; // grain cell in device pixels
 uniform float uVignette;
@@ -46,10 +45,10 @@ void main() {
   vec4 col = gl_FragColor;
 
   // Film grain: one cell per CSS pixel, strongest in the mid-tones and
-  // still plainly there in the shadows and the sky.
+  // still plainly there in the shadows and the sky. Static, like a print.
   float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
   vec2 cell = floor(gl_FragCoord.xy / uGrainSize);
-  float g = hash(cell + vec2(uTime * 37.0, uTime * 11.0)) - 0.5;
+  float g = hash(cell) - 0.5;
   float weight = 0.6 + 0.9 * (1.0 - abs(2.0 * lum - 1.0));
   col.rgb += g * uGrain * weight;
 
