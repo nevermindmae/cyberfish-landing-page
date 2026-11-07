@@ -49,11 +49,13 @@ export class Post {
 
     this.composer.addPass(new RenderPass(scene, camera));
 
+    // Per assets-src/cyberfish/README.md: threshold ~1.0 so only the emissive
+    // circuit traces and eye rings bloom, not the white shell.
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(Math.max(1, size.x / 2), Math.max(1, size.y / 2)),
-      0.75, // strength
-      0.6, // radius
-      0.75, // threshold: lit body stays below, emissive traces go above
+      0.45, // strength
+      0.55, // radius
+      0.95, // threshold
     );
     this.composer.addPass(this.bloom);
 

@@ -10,16 +10,24 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matc
 const mobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
 
 // Progress milestones. Reaching this script means the module graph (three.js
-// included) has been fetched and evaluated. Asset loads via a LoadingManager
-// can be wired into the 0.35..0.6 band when the fish adds textures.
+// included) has been fetched and evaluated. The fish GLB (~9.5 MB) is the
+// bulk of the load, so its download drives the 0.2..0.9 band.
 const loader = new Loader(reducedMotion);
-loader.setProgress(0.35);
+loader.setProgress(0.15);
 
 const scene = new CyberScene(root, { reducedMotion, mobile });
-loader.setProgress(0.6);
+loader.setProgress(0.2);
+
+try {
+  await scene.loadFish((f) => loader.setProgress(0.2 + f * 0.7));
+} catch (err) {
+  // Reveal the page anyway rather than leaving the visitor on the loader.
+  console.error('Fish model failed to load', err);
+}
+loader.setProgress(0.92);
 
 scene.compile();
-loader.setProgress(0.85);
+loader.setProgress(0.97);
 
 scene.start();
 // First frame is on screen behind the overlay; reveal.
