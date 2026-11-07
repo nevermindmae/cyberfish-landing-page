@@ -23,10 +23,10 @@ const FOV_PORTRAIT = 48;
 const FISH_ABOVE_CAMERA = 1.2;
 /**
  * Where the fish hovers (y is set per frame from the camera height). Offset
- * left in landscape to leave the right side for the tagline; centred on
+ * right in landscape to leave the left side for the tagline; centred on
  * portrait screens where the copy sits below it.
  */
-export const FOCUS = new THREE.Vector3(-1.7, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
+export const FOCUS = new THREE.Vector3(1.9, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
 
 export interface SceneOptions {
   reducedMotion: boolean;
