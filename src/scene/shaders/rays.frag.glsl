@@ -9,6 +9,8 @@ uniform float uAngle;      // lean of the shafts from vertical (rad)
 uniform float uScale;      // across-shaft frequency (1 / world units)
 uniform float uIntensity;
 uniform vec2 uSize;        // plane size in world units
+uniform float uAnchor;     // across-shaft centre of a band that is always lit
+uniform float uAnchorWidth;
 uniform vec3 uColorDeep;
 uniform vec3 uColorBright;
 
@@ -62,17 +64,22 @@ void main() {
   float u = vP.x * ca + vP.y * sa;
   float v = -vP.x * sa + vP.y * ca;
 
-  // Where there are shafts at all: a slow, very large-scale mask, squared so
-  // most of the plane stays black and the light gathers in a region or two.
-  float region = fbm2(vec2(u * 0.02, v * 0.007) + uSeed * 3.7 + vec2(t * 0.003, 0.0));
-  region = smoothstep(0.42, 0.66, region);
-  region *= sqrt(region);
+  // Where there are shafts at all. A fixed soft band per layer sets the
+  // envelope, so the frame always carries light in the same places and
+  // never more than this; a slow, very large-scale noise only varies it
+  // inside that envelope, with a faint trace of shafts elsewhere.
+  float mask = fbm2(vec2(u * 0.02, v * 0.007) + uSeed * 3.7 + vec2(t * 0.003, 0.0));
+  mask = smoothstep(0.35, 0.7, mask);
+  float du = (u - uAnchor) / uAnchorWidth;
+  float anchor = exp(-du * du);
+  float region = anchor * (0.65 + 0.35 * mask) + 0.08 * mask;
 
   // Shafts across u: a broad band broken up by finer beams, drifting and
   // bending slowly along v so they waver like light through a moving surface.
   float bend = noise2(vec2(v * 0.025 + uSeed, t * 0.025)) - 0.5;
   float x = u * uScale + bend * 1.6 + t * 0.012;
-  float broad = noise1(x * 0.5 + uSeed * 7.0);
+  // Floored so a lit band always carries some beams however the noise lands.
+  float broad = 0.15 + 0.85 * noise1(x * 0.5 + uSeed * 7.0);
   float mid = noise1(x * 1.7 - t * 0.008 + uSeed * 3.0);
   float fine = noise1(x * 5.0 + t * 0.02 + uSeed * 11.0);
   float shafts = broad * (0.45 + 0.55 * mid) * (0.65 + 0.35 * fine);
@@ -80,7 +87,7 @@ void main() {
 
   // Along v: full toward the top, dying out before the lower frame; each
   // shaft reaches a different depth.
-  float reach = 0.1 + 0.45 * noise1(x * 0.5 + 3.1 + uSeed);
+  float reach = 0.05 + 0.25 * noise1(x * 0.5 + 3.1 + uSeed);
   float along = smoothstep(-uSize.y * reach, uSize.y * 0.05, v);
   along *= 1.0 - smoothstep(uSize.y * 0.25, uSize.y * 0.5, v);
 

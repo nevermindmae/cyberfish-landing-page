@@ -21,18 +21,24 @@ export interface DeepOptions {
   pixelRatio: number;
 }
 
-/** Shaft layers: distance in front of the camera, lean, seed, brightness. */
+/**
+ * Shaft layers: distance in front of the camera, lean, seed, brightness,
+ * and a band (centre and half-width, as a fraction of the distance, so
+ * roughly a fraction of the frame's half-width) that always carries light.
+ */
 interface RayLayer {
   distance: number;
   angle: number;
   seed: number;
   intensity: number;
+  anchor: number;
+  anchorWidth: number;
 }
 
 const RAY_LAYERS: RayLayer[] = [
-  { distance: 16, angle: -0.3, seed: 1.3, intensity: 1.0 },
-  { distance: 28, angle: -0.36, seed: 4.7, intensity: 0.9 },
-  { distance: 44, angle: -0.24, seed: 8.1, intensity: 0.8 },
+  { distance: 16, angle: -0.3, seed: 1.3, intensity: 1.1, anchor: 0.28, anchorWidth: 0.3 },
+  { distance: 28, angle: -0.36, seed: 4.7, intensity: 1.0, anchor: -0.22, anchorWidth: 0.26 },
+  { distance: 44, angle: -0.24, seed: 8.1, intensity: 0.9, anchor: 0.1, anchorWidth: 0.4 },
 ];
 /** Plane size relative to its distance: generous, so parallax never shows an edge. */
 const RAY_PLANE_HEIGHT = 1.3;
@@ -110,6 +116,8 @@ export class Deep {
         uScale: { value: RAY_SCALE / layer.distance },
         uIntensity: { value: layer.intensity },
         uSize: { value: new THREE.Vector2(width, height) },
+        uAnchor: { value: layer.anchor * layer.distance },
+        uAnchorWidth: { value: layer.anchorWidth * layer.distance },
         uColorDeep: { value: RAY_COLOR_DEEP.clone() },
         uColorBright: { value: RAY_COLOR_BRIGHT.clone() },
       },
