@@ -55,12 +55,104 @@
         height: auto;
         overflow: visible;
         display: block;
+        transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      /* Dock toward the nav mark position. Refined once the nav exists. */
+      #loader.docked #mark {
+        transform: scale(0.42) translateY(-80px);
       }
       #loader .row {
         width: min(320px, 60vw);
         display: flex;
         justify-content: space-between;
         align-items: baseline;
+        transition: opacity 300ms;
+      }
+      #loader.docked .row {
+        opacity: 0;
+      }
+      /* Status row and enter buttons share one slot under the mark. The enter
+         stack is taller than the row; its top edge stays at the slot top. */
+      #loader .foot {
+        display: grid;
+        place-items: center;
+      }
+      #loader .foot > * {
+        grid-area: 1 / 1;
+      }
+      /* Enter buttons. Hidden until the mark has docked, then rise to sit under it. */
+      #loader .enter {
+        --rise: 72px;
+        width: min(260px, 80vw);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(calc(-1 * var(--rise) + 12px));
+        transition:
+          opacity 500ms 600ms,
+          transform 500ms 600ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          visibility 0s 600ms;
+      }
+      #loader.docked .enter {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(calc(-1 * var(--rise)));
+      }
+      #loader .btn {
+        appearance: none;
+        cursor: pointer;
+        width: 100%;
+        padding: 12px 20px;
+        border: 1px solid #2ea8ff;
+        border-radius: 2px;
+        background: transparent;
+        color: #2ea8ff;
+        font: 500 12px/1 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        transition:
+          background 160ms,
+          color 160ms,
+          border-color 160ms;
+      }
+      #loader .btn:hover,
+      #loader .btn:focus-visible {
+        background: rgba(46, 168, 255, 0.12);
+        outline: none;
+      }
+      #loader .btn.quiet {
+        border-color: #4a5368;
+        color: #8a94ab;
+      }
+      #loader .btn.quiet:hover,
+      #loader .btn.quiet:focus-visible {
+        border-color: #8a94ab;
+        color: #c9d1e3;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      #loader .btn:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
+      /* Narrow screens: the mark box is shorter, so the buttons need less lift. */
+      @media (max-width: 480px) {
+        #loader .enter {
+          --rise: 56px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #loader.docked #mark {
+          transform: none;
+        }
+        #loader .enter {
+          transform: none;
+          transition: opacity 300ms;
+        }
+        #loader.docked .enter {
+          transform: none;
+        }
       }
       #loader .lbl {
         font-size: 12px;
@@ -78,7 +170,7 @@
   </head>
   <body>
     <div id="scene" aria-hidden="true"></div>
-    <div id="loader" role="status" aria-live="polite">
+    <div id="loader">
       <svg id="mark" viewBox="30 -649 1620 640" aria-label="CyberFish">
         <defs>
           <filter id="glow" x="-40%" y="-60%" width="180%" height="220%">
@@ -109,9 +201,15 @@
           <rect id="edgeline" x="30" y="-680" width="6" height="720" fill="#FFFFFF" />
         </g>
       </svg>
-      <div class="row">
-        <div class="lbl" id="label">Loading content</div>
-        <div class="pct" id="pct">0%</div>
+      <div class="foot">
+        <div class="row" role="status" aria-live="polite">
+          <div class="lbl" id="label">Loading content</div>
+          <div class="pct" id="pct">0%</div>
+        </div>
+        <div class="enter" id="enter">
+          <button class="btn" id="enter-sound" type="button">Enter with sound</button>
+          <button class="btn quiet" id="enter-mute" type="button">Enter without sound</button>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

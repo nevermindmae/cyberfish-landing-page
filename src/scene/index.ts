@@ -1,14 +1,11 @@
 import * as THREE from 'three';
-import { Ocean } from './ocean';
 import { Sky } from './sky';
-import { Fish } from './fish';
-import { FishMotion } from './motion';
+import { Post } from './post';
 import { COLORS, FISH_KEY_DIR, FOG_DENSITY } from './palette';
-import { waveHeight } from './waves';
 
 export const CAMERA_HEIGHT = 1.5;
-/** Where the fish will hover; the camera looks slightly up at this point. */
-export const FISH_CENTRE = new THREE.Vector3(0, 5, -17);
+/** Where the hero asset hovers; the camera looks slightly up at this point. */
+export const FOCUS = new THREE.Vector3(0, 5, -17);
 
 export interface SceneOptions {
   reducedMotion: boolean;
@@ -20,17 +17,15 @@ const PARALLAX_SHIFT = new THREE.Vector2(0.6, 0.3);
 const PARALLAX_TILT = 0.03;
 
 /**
- * Owns the renderer, camera, ocean, sky, fish and the render loop.
- * Post-processing attaches in a later milestone.
+ * Owns the renderer, camera, sky, lights, post chain and the render loop.
+ * The ocean and fish come from Blender assets and attach to `scene`.
  */
 export class CyberScene {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  readonly ocean: Ocean;
   readonly sky: Sky;
-  readonly fish: Fish;
-  readonly motion: FishMotion;
+  readonly post: Post;
 
   private readonly container: HTMLElement;
   private readonly opts: SceneOptions;
@@ -38,14 +33,11 @@ export class CyberScene {
   private time = 0;
   private running = false;
   private raf = 0;
-  private cameraY = CAMERA_HEIGHT;
   private readonly lookTarget = new THREE.Vector3();
   /** Pointer position in -1..1, and its damped copy used by the camera. */
   private readonly pointer = new THREE.Vector2();
   private readonly parallax = new THREE.Vector2();
-
-  /** Current fish position, fed to the ocean glow and the fill light. */
-  readonly fishPosition = FISH_CENTRE.clone();
+  private resizeObserver: ResizeObserver;
 
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
@@ -64,43 +56,28 @@ export class CyberScene {
 
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1200);
     this.camera.position.set(0, CAMERA_HEIGHT, 0);
-    this.lookTarget.copy(FISH_CENTRE).setY(FISH_CENTRE.y - 0.6);
+    this.lookTarget.copy(FOCUS).setY(FOCUS.y - 0.6);
     this.camera.lookAt(this.lookTarget);
 
-    // scene.fog is used by lit materials (the fish). The ocean fogs itself with
-    // the same colour and density so both agree under the post-processing pass.
     this.scene.fog = new THREE.FogExp2(COLORS.skyHorizon.getHex(), FOG_DENSITY);
 
     this.sky = new Sky();
     this.scene.add(this.sky.mesh);
 
-    this.ocean = new Ocean({ segments: opts.mobile ? 160 : 384 });
-    this.scene.add(this.ocean.mesh);
-
-    // One cool key light plus a soft sky/water hemisphere. Intensities are
-    // kept low enough that the lit body stays under the bloom threshold.
-    const key = new THREE.DirectionalLight(COLORS.light, 0.9);
-    key.position.copy(FISH_KEY_DIR).multiplyScalar(50).add(FISH_CENTRE);
-    key.target.position.copy(FISH_CENTRE);
+    // One cool key light plus a soft hemisphere. Lambert divides by pi, so a
+    // white body at ~0.8 albedo stays just under the 0.75 bloom threshold.
+    const key = new THREE.DirectionalLight(COLORS.light, 2.6);
+    key.position.copy(FISH_KEY_DIR).multiplyScalar(50).add(FOCUS);
+    key.target.position.copy(FOCUS);
     this.scene.add(key, key.target);
-    const hemi = new THREE.HemisphereLight(COLORS.hemiSky, COLORS.hemiGround, 0.9);
+    const hemi = new THREE.HemisphereLight(COLORS.hemiSky, COLORS.hemiGround, 1.8);
     this.scene.add(hemi);
-    // Faint fill from below so the belly is not pitch black, tinted by the water glow.
-    const fill = new THREE.PointLight(COLORS.accent, 1.5, 30, 1.6);
-    fill.position.set(0, -2, 0);
-    this.fillLight = fill;
-    this.scene.add(fill);
-
-    this.fish = new Fish();
-    this.scene.add(this.fish.group);
-    this.motion = new FishMotion(this.fish, FISH_CENTRE, opts.reducedMotion);
-
-    // Start the clock a little in so the first frame is not a flat sea.
-    this.time = 12;
-    this.motion.update(this.time, 0);
-    this.fishPosition.copy(this.fish.group.position);
 
     this.resize();
+    this.post = new Post(this.renderer, this.scene, this.camera, {
+      mobile: opts.mobile,
+      reducedMotion: opts.reducedMotion,
+    });
     window.addEventListener('resize', this.resize);
     this.resizeObserver = new ResizeObserver(this.resize);
     this.resizeObserver.observe(container);
@@ -111,9 +88,6 @@ export class CyberScene {
       window.addEventListener('pointerleave', this.onPointerLeave);
     }
   }
-
-  private resizeObserver: ResizeObserver;
-  private fillLight!: THREE.PointLight;
 
   start(): void {
     if (this.running) return;
@@ -128,9 +102,14 @@ export class CyberScene {
     cancelAnimationFrame(this.raf);
   }
 
-  /** Compile all shaders now so the first visible frame does not stutter. */
+  /**
+   * Compile all shaders now so the first visible frame does not stutter.
+   * Rendering one frame through the composer compiles the exact program
+   * variants used in production (render-target path, no on-screen tone mapping).
+   */
   compile(): void {
-    this.renderer.compile(this.scene, this.camera);
+    this.update(0);
+    this.render();
   }
 
   dispose(): void {
@@ -140,6 +119,7 @@ export class CyberScene {
     document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('pointerleave', this.onPointerLeave);
+    this.post.dispose();
     this.renderer.dispose();
   }
 
@@ -160,9 +140,10 @@ export class CyberScene {
     const h = this.container.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    // Slightly wider on narrow screens so the fish stays in frame.
+    // Slightly wider on narrow screens so the hero stays in frame.
     this.camera.fov = w < h ? 48 : 38;
     this.camera.updateProjectionMatrix();
+    this.post?.setSize(w, h);
   };
 
   private readonly onVisibility = (): void => {
@@ -180,37 +161,22 @@ export class CyberScene {
   };
 
   protected update(dt: number): void {
-    this.motion.update(this.time, dt);
-    this.fish.update(this.time);
-    this.fishPosition.copy(this.fish.group.position);
-    this.fillLight.position.set(this.fishPosition.x, this.fishPosition.y - 3, this.fishPosition.z);
-
-    // Camera rides the swell gently: fixed height above the water beneath it.
-    const h = waveHeight(0, 0, this.time);
-    const targetY = CAMERA_HEIGHT + Math.max(h, -0.3) * 0.8 + 0.5;
-    const k = 1 - Math.exp(-dt * 1.2);
-    this.cameraY += (targetY - this.cameraY) * k;
-
     // Damped mouse parallax: a small shift plus a tilt of a couple of degrees.
     const kp = 1 - Math.exp(-dt * 2.5);
     this.parallax.lerp(this.pointer, kp);
     this.camera.position.set(
       this.parallax.x * PARALLAX_SHIFT.x,
-      this.cameraY + this.parallax.y * PARALLAX_SHIFT.y,
+      CAMERA_HEIGHT + this.parallax.y * PARALLAX_SHIFT.y,
       0,
     );
-    // Aim between the path centre and the fish so the fish never leaves frame.
-    this.lookTarget.copy(FISH_CENTRE).lerp(this.fishPosition, 0.35);
-    this.lookTarget.y = FISH_CENTRE.y - 0.6;
     this.camera.lookAt(this.lookTarget);
     this.camera.rotateY(-this.parallax.x * PARALLAX_TILT);
     this.camera.rotateX(this.parallax.y * PARALLAX_TILT * 0.6);
 
-    this.ocean.update(this.time, this.fishPosition);
     this.sky.follow(this.camera);
   }
 
   protected render(): void {
-    this.renderer.render(this.scene, this.camera);
+    this.post.render(this.time);
   }
 }

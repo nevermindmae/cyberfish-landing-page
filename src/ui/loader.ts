@@ -4,7 +4,8 @@
  * The markup and styles live in index.html so the overlay paints before any
  * module script is fetched. This class only drives it: callers report real
  * progress via setProgress(); the shown value eases toward it so it never
- * jumps, and at 100% the mark docks toward the nav and the overlay fades.
+ * jumps. At 100% the mark docks toward the nav and two enter buttons appear;
+ * the overlay fades once the visitor picks sound on or off.
  */
 
 // Mark viewBox x-range; the clip rect sweeps across this.
@@ -14,8 +15,14 @@ const W = X1 - X0;
 
 const EASE = 0.08;
 const DOCK_DELAY_MS = 500;
-const FADE_DELAY_MS = 500;
+/** Dock transition (900ms) plus the buttons' transition delay, see index.html. */
+const ENTER_READY_MS = 900 + 600;
 const FADE_MS = 600;
+
+/** What the visitor chose on the enter buttons. */
+export interface EnterChoice {
+  sound: boolean;
+}
 
 function el<T extends Element>(id: string): T {
   const node = document.getElementById(id);
@@ -24,11 +31,10 @@ function el<T extends Element>(id: string): T {
 }
 
 export class Loader {
-  /** Resolves once the overlay has fully faded out and been removed. */
-  readonly done: Promise<void>;
+  /** Resolves once the visitor has entered and the overlay has been removed. */
+  readonly done: Promise<EnterChoice>;
 
   private readonly root = el<HTMLElement>('loader');
-  private readonly mark = el<SVGSVGElement>('mark');
   private readonly clip = el<SVGRectElement>('cliprect');
   private readonly halo = el<SVGUseElement>('halo');
   private readonly edge = el<SVGGElement>('edge');
@@ -36,16 +42,21 @@ export class Loader {
   private readonly edgeLine = el<SVGRectElement>('edgeline');
   private readonly pct = el<HTMLElement>('pct');
   private readonly label = el<HTMLElement>('label');
+  private readonly enterSound = el<HTMLButtonElement>('enter-sound');
+  private readonly enterMute = el<HTMLButtonElement>('enter-mute');
 
   private readonly reducedMotion: boolean;
   private target = 0;
   private shown = 0;
   private finished = false;
-  private resolveDone!: () => void;
+  private entered = false;
+  private resolveDone!: (choice: EnterChoice) => void;
 
   constructor(reducedMotion: boolean) {
     this.reducedMotion = reducedMotion;
     this.done = new Promise((resolve) => (this.resolveDone = resolve));
+    this.enterSound.addEventListener('click', () => this.enter(true));
+    this.enterMute.addEventListener('click', () => this.enter(false));
     this.render(0);
     requestAnimationFrame(this.tick);
   }
@@ -86,24 +97,28 @@ export class Loader {
     this.label.textContent = 'Ready';
     this.label.style.color = '#2EA8FF';
 
-    const fadeOut = (): void => {
-      this.root.classList.add('done');
-      window.setTimeout(() => {
-        this.root.remove();
-        this.resolveDone();
-      }, FADE_MS);
-    };
-
-    if (this.reducedMotion) {
-      window.setTimeout(fadeOut, DOCK_DELAY_MS);
-      return;
-    }
-
+    // `docked` shrinks the mark toward the nav position and reveals the enter
+    // buttons (styles in index.html). Under reduced motion the mark stays put
+    // and the buttons simply replace the status row.
     window.setTimeout(() => {
-      // Dock toward the nav mark position. Refined once the nav exists.
-      this.mark.style.transition = 'transform 900ms cubic-bezier(.2,.8,.2,1)';
-      this.mark.style.transform = 'scale(0.42) translateY(-80px)';
-      window.setTimeout(fadeOut, FADE_DELAY_MS);
+      this.root.classList.add('docked');
+      const focusDelay = this.reducedMotion ? 0 : ENTER_READY_MS;
+      window.setTimeout(() => {
+        if (!this.entered) this.enterSound.focus({ preventScroll: true });
+      }, focusDelay);
     }, DOCK_DELAY_MS);
+  }
+
+  private enter(sound: boolean): void {
+    if (this.entered) return;
+    this.entered = true;
+    this.enterSound.disabled = true;
+    this.enterMute.disabled = true;
+
+    this.root.classList.add('done');
+    window.setTimeout(() => {
+      this.root.remove();
+      this.resolveDone({ sound });
+    }, FADE_MS);
   }
 }

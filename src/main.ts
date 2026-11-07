@@ -24,3 +24,10 @@ loader.setProgress(0.85);
 scene.start();
 // First frame is on screen behind the overlay; reveal.
 requestAnimationFrame(() => loader.setProgress(1));
+
+// The visitor's enter choice. Audio can read `html[data-sound]` or await
+// `loader.done` once it is wired in; the user gesture on the button also
+// satisfies browser autoplay policies.
+loader.done.then(({ sound }) => {
+  document.documentElement.dataset.sound = sound ? 'on' : 'off';
+});
