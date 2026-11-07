@@ -234,11 +234,13 @@
         <img class="mark" src="/cyberfish-mark.svg" alt="" width="1620" height="640" />
         <span>CyberFish</span>
       </a>
-      <button class="sound" id="sound-toggle" type="button" aria-pressed="false">
-        <span class="sound-label">Sound <span class="sound-state">off</span></span>
-        <svg class="wave" viewBox="0 0 32 12" width="32" height="12" aria-hidden="true">
-          <path d="M1 6 Q5 1 9 6 T17 6 T25 6 T33 6 T41 6" />
+      <button class="sound" id="sound-toggle" type="button" aria-pressed="false" aria-label="Sound effects">
+        <svg class="ping" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+          <circle class="ring r2" cx="10" cy="10" r="8.5" />
+          <circle class="ring r1" cx="10" cy="10" r="5" />
+          <circle class="dot" cx="10" cy="10" r="1.8" />
         </svg>
+        <span class="sound-label">SFX <span class="sound-state">off</span></span>
       </button>
     </header>
     <div id="loader">
