@@ -121,7 +121,9 @@ export class Deep {
       fragmentShader: motesFrag,
       transparent: true,
       depthWrite: false,
-      depthTest: false,
+      // Tested against the unit's depth so the motes behind it do not show
+      // through its case (the water itself writes no depth).
+      depthTest: true,
       blending: THREE.CustomBlending,
       blendSrc: THREE.OneFactor,
       blendDst: THREE.OneFactor,
@@ -291,7 +293,9 @@ export class Deep {
       fragmentShader: raysFrag,
       transparent: true,
       depthWrite: false,
-      depthTest: false,
+      // The shaft planes are well behind the unit; depth-tested so the
+      // light does not shine through its black case.
+      depthTest: true,
       blending: THREE.CustomBlending,
       blendSrc: THREE.OneFactor,
       blendDst: THREE.OneFactor,
