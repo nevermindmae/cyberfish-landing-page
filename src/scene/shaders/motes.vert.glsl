@@ -5,6 +5,8 @@
 uniform float uTime;
 uniform float uPixelRatio;
 uniform float uHalfHeight;
+// Extra rise (world units): the camera sinking makes the motes stream up.
+uniform float uScroll;
 
 // x: speed, y: phase, z: sway, w: kind (0 plain, 1 bright, 2 bokeh)
 attribute vec4 aSeed;
@@ -16,7 +18,7 @@ varying float vKind;
 void main() {
   float t = uTime;
   vec3 p = position;
-  p.y = mod(p.y + t * (0.06 + aSeed.x * 0.12) + uHalfHeight, 2.0 * uHalfHeight) - uHalfHeight;
+  p.y = mod(p.y + t * (0.06 + aSeed.x * 0.12) + uScroll + uHalfHeight, 2.0 * uHalfHeight) - uHalfHeight;
   p.x += sin(t * (0.12 + aSeed.z * 0.18) + aSeed.y * 6.2831) * (0.3 + aSeed.z * 0.6);
   p.z += cos(t * 0.09 + aSeed.y * 3.0) * 0.3;
 

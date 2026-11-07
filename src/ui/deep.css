@@ -139,10 +139,11 @@ html[data-surfacing] .callout {
   transition: opacity 600ms ease 900ms;
 }
 
-/* Going down (html[data-descending]) and on the floor (html[data-floor]):
-   the deep's copy and callout are gone; they return when the visitor
-   comes back up and data-floor is removed. */
+/* Going down (html[data-descending]) and in the chapters below
+   (html[data-safety], html[data-floor]): the deep's copy and callout are
+   gone; they return when the visitor comes back up to the deep. */
 html[data-descending] .deep-block,
+html[data-safety] .deep-block,
 html[data-floor] .deep-block {
   opacity: 0;
   transform: none;
@@ -150,6 +151,7 @@ html[data-floor] .deep-block {
 }
 
 html[data-descending] .callout,
+html[data-safety] .callout,
 html[data-floor] .callout {
   opacity: 0;
 }
@@ -195,8 +197,14 @@ html[data-deep] .descend {
     color 200ms ease;
 }
 
+/* In the safety chapter it is back sooner: the picture is already there. */
+html[data-deep][data-safety] .descend {
+  transition-delay: 1200ms, 1200ms, 0ms;
+}
+
 html[data-deep][data-surfacing] .descend,
 html[data-deep][data-descending] .descend,
+html[data-deep][data-ascending] .descend,
 html[data-deep][data-floor] .descend {
   opacity: 0;
   pointer-events: none;

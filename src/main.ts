@@ -5,6 +5,7 @@ import './ui/hero.css';
 import './ui/cta.css';
 import './ui/back.css';
 import './ui/deep.css';
+import './ui/safety.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { Callout } from './ui/callout';
@@ -131,31 +132,36 @@ if (deploy) {
 }
 
 // Chapters below the surface. html[data-deep] stays set for the whole
-// stretch below (the nav and "Back to top" key off it); html[data-floor]
-// marks the last chapter, and data-descending / data-ascending the fades
-// between them.
+// stretch below (the nav and "Back to top" key off it); html[data-safety]
+// and html[data-floor] mark the chapters further down, and
+// data-descending / data-ascending the moves between them.
 const below = (): boolean => 'deep' in html.dataset;
 const changing = (): boolean =>
   'surfacing' in html.dataset || 'descending' in html.dataset || 'ascending' in html.dataset;
+const reflectChapter = (): void => {
+  delete html.dataset.safety;
+  delete html.dataset.floor;
+  if (scene.chapter !== 'deep') html.dataset[scene.chapter] = '';
+};
 
-// Deep -> floor: "Continue", or a scroll down.
+// One chapter down: "Continue", or a scroll down.
 const descend = async (): Promise<void> => {
   if (!below() || 'floor' in html.dataset || changing()) return;
   html.dataset.descending = '';
   void sfx.play('confirm1');
   await scene.descend();
   delete html.dataset.descending;
-  html.dataset.floor = '';
+  reflectChapter();
 };
 
-// Floor -> deep: a scroll up.
+// One chapter up: a scroll up.
 const ascend = async (): Promise<void> => {
-  if (!below() || !('floor' in html.dataset) || changing()) return;
+  if (!below() || scene.chapter === 'deep' || changing()) return;
   html.dataset.ascending = '';
   void sfx.play('confirm1');
   await scene.ascend();
   delete html.dataset.ascending;
-  delete html.dataset.floor;
+  reflectChapter();
 };
 
 const descendBtn = document.getElementById('descend') as HTMLButtonElement | null;
@@ -196,6 +202,7 @@ if (backTop) {
     await scene.surface();
     delete html.dataset.diving;
     delete html.dataset.deep;
+    delete html.dataset.safety;
     delete html.dataset.floor;
     delete html.dataset.surfacing;
     if (deploy) deploy.disabled = false;

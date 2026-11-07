@@ -6,23 +6,16 @@ import motesVert from './shaders/motes.vert.glsl?raw';
 import motesFrag from './shaders/motes.frag.glsl?raw';
 
 /**
- * The deep: the chapter below the surface. Near-black water, a few broad
- * shafts of light leaning down from above, and motes drifting in the dark.
- * Everything lives in `root`, laid out around the origin with the camera at
- * the origin looking down -Z; the scene places the root where the dive left
- * the camera.
+ * The deep: the first chapter below the surface. The water itself (shafts
+ * and motes) is the shared Water; this chapter is the DeKoi unit
+ * (public/models/dekoi.glb) hanging on the right, tipped toward the lens,
+ * opening its lid once the chapter has surfaced. `root` is laid out around
+ * the origin with the camera at the origin looking down -Z.
  *
- * Shafts are additive planes at a few depths (so the mouse parallax gives
- * them volume); motes are one Points cloud whose motion is computed in the
- * vertex shader. The DeKoi unit (public/models/dekoi.glb) hangs on the
- * right, tipped toward the lens, and opens its lid once the chapter has
- * surfaced.
+ * This file also holds the shaft and mote builders, shared by the water
+ * and the floor: additive planes at a few depths (so the mouse parallax
+ * gives them volume), and one Points cloud moved in the vertex shader.
  */
-
-export interface DeepOptions {
-  mobile: boolean;
-  pixelRatio: number;
-}
 
 /**
  * Shaft layers: distance in front of the camera, lean, seed, brightness,
@@ -38,11 +31,6 @@ export interface RayLayer {
   anchorWidth: number;
 }
 
-const RAY_LAYERS: RayLayer[] = [
-  { distance: 16, angle: -0.3, seed: 1.3, intensity: 1.1, anchor: 0.28, anchorWidth: 0.3 },
-  { distance: 28, angle: -0.36, seed: 4.7, intensity: 1.0, anchor: -0.22, anchorWidth: 0.26 },
-  { distance: 44, angle: -0.24, seed: 8.1, intensity: 0.9, anchor: 0.1, anchorWidth: 0.4 },
-];
 /** Plane size relative to its distance: generous, so parallax never shows an edge. */
 const RAY_PLANE_HEIGHT = 1.3;
 const RAY_PLANE_WIDTH = 3.2;
@@ -52,9 +40,6 @@ const RAY_SCALE = 12;
 const RAY_COLOR_DEEP = new THREE.Color('#0a2c74');
 const RAY_COLOR_BRIGHT = new THREE.Color('#7fbfff');
 const MOTE_COLOR = new THREE.Color('#a9d6ff');
-
-const MOTE_COUNT = 720;
-const MOTE_COUNT_MOBILE = 300;
 /** Motes fill a wedge in front of the camera: this deep, this tall. */
 const MOTE_DEPTH = [2, 46] as const;
 const MOTE_HALF_HEIGHT = 12;
@@ -91,10 +76,6 @@ const HIT_MESHES = new Set(['DK_CaseBody', 'DK_Lid']);
 export class Deep {
   readonly root = new THREE.Group();
 
-  private readonly rayMaterials: THREE.ShaderMaterial[] = [];
-  private readonly moteMaterial: THREE.ShaderMaterial;
-  private readonly geometries: THREE.BufferGeometry[] = [];
-
   /** Device rig: `drift` carries the float, `tilt` and `turn` the pose. */
   private readonly drift = new THREE.Group();
   private readonly tilt = new THREE.Group();
@@ -110,22 +91,9 @@ export class Deep {
   private readonly hitMeshes: THREE.Mesh[] = [];
   private readonly hits: THREE.Intersection[] = [];
 
-  constructor(opts: DeepOptions) {
-    const layers = opts.mobile ? RAY_LAYERS.slice(0, 2) : RAY_LAYERS;
-    for (const layer of layers) {
-      const rays = createRays(layer);
-      this.rayMaterials.push(rays.material);
-      this.geometries.push(rays.geometry);
-      this.root.add(rays.object);
-    }
-
-    const motes = createMotes(opts.mobile ? MOTE_COUNT_MOBILE : MOTE_COUNT, opts.pixelRatio);
-    this.moteMaterial = motes.material;
-    this.geometries.push(motes.geometry);
-    this.root.add(motes.object);
-
-    // Device rig and its lights. The shaft and mote shaders ignore lights,
-    // so these are for the unit alone: a cool key from above on the lens
+  constructor() {
+    // Device rig and its lights. The water's shaders ignore lights, so
+    // these are for the unit alone: a cool key from above on the lens
     // side, a blue rim from behind, and a faint fill so the black case has
     // some form in its shadows.
     this.drift.position.copy(DEVICE_POS_LANDSCAPE);
@@ -233,15 +201,12 @@ export class Deep {
   }
 
   /**
-   * @param time    scene clock (drives the shaders and the drift)
+   * @param time    scene clock (drives the drift)
    * @param dt      frame delta
    * @param since   seconds since the hand-off into the deep
    * @param aspect  camera aspect, for the device's placement
    */
   update(time: number, dt: number, since: number, aspect: number): void {
-    for (const m of this.rayMaterials) m.uniforms.uTime.value = time;
-    this.moteMaterial.uniforms.uTime.value = time;
-
     // The unit floats: a slow bob and the gentlest roll and nod.
     const at = aspect < 1 ? DEVICE_POS_PORTRAIT : DEVICE_POS_LANDSCAPE;
     this.drift.position.set(at.x, at.y + Math.sin(time * 0.45) * 0.07, at.z);
@@ -256,9 +221,6 @@ export class Deep {
   }
 
   dispose(): void {
-    for (const m of this.rayMaterials) m.dispose();
-    this.moteMaterial.dispose();
-    for (const g of this.geometries) g.dispose();
     this.mixer?.stopAllAction();
     this.device?.traverse((o) => {
       if (!(o instanceof THREE.Mesh)) return;
@@ -356,6 +318,7 @@ export function createMotes(count: number, pixelRatio: number): Part<THREE.Point
       uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
       uHalfHeight: { value: MOTE_HALF_HEIGHT },
+      uScroll: { value: 0 },
       uColor: { value: MOTE_COLOR.clone() },
     },
     vertexShader: motesVert,

@@ -1,0 +1,164 @@
+/* The safety chapter's copy, one level below the deep. The lens glides
+   down to open water, and the words sit in the middle of it: a mono
+   kicker, one Michroma title, and five points with a line icon each. No
+   rules between them; the spacing does that. They come up in order once
+   the glide has settled (html[data-safety]) and go when the visitor moves
+   on (descending / ascending / surfacing). */
+.safety-copy {
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(820px, 64vw);
+  margin: 0;
+  pointer-events: none;
+}
+
+.safety-kicker,
+.safety-title,
+.safety-item {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 500ms ease,
+    transform 500ms ease;
+}
+
+html[data-safety] .safety-kicker,
+html[data-safety] .safety-title,
+html[data-safety] .safety-item {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 1000ms ease,
+    transform 1000ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-safety] .safety-kicker {
+  transition-delay: 300ms;
+}
+
+html[data-safety] .safety-title {
+  transition-delay: 500ms;
+}
+
+html[data-safety] .safety-item:nth-child(1) {
+  transition-delay: 900ms;
+}
+
+html[data-safety] .safety-item:nth-child(2) {
+  transition-delay: 1100ms;
+}
+
+html[data-safety] .safety-item:nth-child(3) {
+  transition-delay: 1300ms;
+}
+
+html[data-safety] .safety-item:nth-child(4) {
+  transition-delay: 1500ms;
+}
+
+html[data-safety] .safety-item:nth-child(5) {
+  transition-delay: 1700ms;
+}
+
+/* Leaving: everything sinks together, no stagger. */
+html[data-safety][data-descending] .safety-kicker,
+html[data-safety][data-descending] .safety-title,
+html[data-safety][data-descending] .safety-item,
+html[data-safety][data-ascending] .safety-kicker,
+html[data-safety][data-ascending] .safety-title,
+html[data-safety][data-ascending] .safety-item,
+html[data-safety][data-surfacing] .safety-kicker,
+html[data-safety][data-surfacing] .safety-title,
+html[data-safety][data-surfacing] .safety-item {
+  opacity: 0;
+  transform: none;
+  transition: opacity 500ms ease;
+}
+
+.safety-kicker {
+  margin: 0 0 18px;
+  font: 500 clamp(13px, 1.1vw, 15px) / 1 var(--font-mono);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 0 14px rgba(46, 168, 255, 0.35);
+}
+
+.safety-title {
+  margin: 0 0 44px;
+  font: 400 clamp(26px, 2.8vw, 42px) / 1.25 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--white);
+  text-shadow: 0 0 22px rgba(46, 168, 255, 0.25);
+}
+
+.safety-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.safety-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  font: 400 clamp(16px, 1.45vw, 21px) / 1.55 var(--font-mono);
+  color: var(--white);
+  text-shadow: 0 1px 14px rgba(6, 10, 20, 0.8);
+}
+
+.safety-icon {
+  flex: 0 0 auto;
+  width: 1.5em;
+  height: 1.5em;
+  margin-top: 0.05em;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(46, 168, 255, 0.45));
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .safety-copy {
+    width: min(820px, calc(100vw - 2 * var(--frame-inset) - 24px));
+  }
+
+  .safety-title {
+    margin-bottom: 32px;
+  }
+
+  .safety-list {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .safety-copy {
+    width: calc(100vw - 32px);
+  }
+
+  .safety-item {
+    font-size: 14px;
+    gap: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .safety-kicker,
+  .safety-title,
+  .safety-item,
+  html[data-safety] .safety-kicker,
+  html[data-safety] .safety-title,
+  html[data-safety] .safety-item {
+    transform: none;
+    transition: opacity 300ms;
+  }
+}
