@@ -1,0 +1,46 @@
+/* Top nav. Sits inside the 24px HUD inset; the lockup follows BRAND.md:
+   mark at the cap height of the adjacent text, 0.6em gap, never taller
+   than the text. Hidden behind the loader until it fades. */
+.nav {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  pointer-events: none;
+}
+
+.nav > * {
+  pointer-events: auto;
+}
+
+.nav .lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  color: var(--white);
+  font: 400 16px/1 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  user-select: none;
+}
+
+/* Michroma's cap height is ~0.72em: 16px text -> 11.5px mark. */
+.nav .lockup .mark {
+  display: block;
+  height: 11.5px;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .nav {
+    top: 16px;
+    left: 16px;
+    right: 16px;
+  }
+}

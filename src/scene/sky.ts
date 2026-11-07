@@ -27,7 +27,7 @@ export class Sky {
         uMid: { value: OCEAN.skyMid.clone() },
         uTop: { value: OCEAN.skyTop.clone() },
         uCloudTint: { value: OCEAN.skyCloudTint.clone() },
-        uCloudStrength: { value: 0.55 },
+        uCloudStrength: { value: 0.35 },
         uTime,
       },
     });

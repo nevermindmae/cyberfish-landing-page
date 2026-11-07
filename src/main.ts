@@ -1,5 +1,6 @@
 import './ui/tokens.css';
 import './ui/base.css';
+import './ui/nav.css';
 import { Loader } from './ui/loader';
 import { CyberScene } from './scene';
 

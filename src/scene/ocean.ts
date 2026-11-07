@@ -11,7 +11,7 @@ import { OCEAN } from './palette';
 /** Swell direction from the spec, degrees from +X toward -Z. */
 const DIRECTION_DEG = 35;
 /** Global slowdown of the physically-derived wave speeds: dreamy, not stormy. */
-const TIME_SCALE = 0.55;
+const TIME_SCALE = 0.42;
 
 interface Wave {
   /** Wavelength in metres. */
@@ -24,15 +24,21 @@ interface Wave {
   steepness: number;
 }
 
-/** Dominant swell ~80 m, a couple of cross swells, then chop. Total ~1.7 m. */
-const WAVES: Wave[] = [
-  { length: 84, amplitude: 0.85, angle: 0, steepness: 0.32 },
-  { length: 46, amplitude: 0.45, angle: 22, steepness: 0.38 },
-  { length: 23, amplitude: 0.22, angle: -31, steepness: 0.42 },
-  { length: 11, amplitude: 0.1, angle: 57, steepness: 0.4 },
-  { length: 5.2, amplitude: 0.04, angle: -68, steepness: 0.3 },
-  { length: 2.6, amplitude: 0.015, angle: 14, steepness: 0.25 },
+/**
+ * Big, heavy swells: a ~140 m dominant wave, two cross swells, then chop.
+ * Total crest height ~3.1 m; the camera sits above that (CAMERA_POS.y).
+ */
+export const WAVES: Wave[] = [
+  { length: 140, amplitude: 1.6, angle: 0, steepness: 0.3 },
+  { length: 74, amplitude: 0.85, angle: 24, steepness: 0.36 },
+  { length: 36, amplitude: 0.4, angle: -30, steepness: 0.42 },
+  { length: 16, amplitude: 0.16, angle: 55, steepness: 0.4 },
+  { length: 7, amplitude: 0.06, angle: -66, steepness: 0.3 },
+  { length: 3.2, amplitude: 0.02, angle: 14, steepness: 0.25 },
 ];
+
+/** Highest the surface can reach above y = 0. */
+export const WAVE_CREST = WAVES.reduce((s, w) => s + w.amplitude, 0);
 
 const GRAVITY = 9.81;
 
@@ -80,11 +86,15 @@ export class Ocean {
   private readonly uTime: THREE.IUniform<number> = { value: 0 };
   private readonly bump: THREE.DataTexture;
   private readonly reducedMotion: boolean;
+  private readonly waveA: THREE.Vector4[];
+  private readonly waveB: THREE.Vector2[];
 
   constructor(opts: OceanOptions) {
     this.reducedMotion = opts.reducedMotion;
 
-    const size = 900;
+    // Fog hides everything past ~100 m, so the plane can stay fairly tight
+    // and spend its vertices on wave detail.
+    const size = 600;
     const segments = opts.mobile ? 160 : 384;
     const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
     geometry.rotateX(-Math.PI / 2);
@@ -97,15 +107,15 @@ export class Ocean {
       color: OCEAN.waterBase,
       // A touch rougher than the Blender value: a directional key on a
       // mirror-smooth surface throws hard glints across the whole sea.
-      roughness: 0.12,
+      roughness: 0.26,
       metalness: 0,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.08,
+      clearcoat: 0.35,
+      clearcoatRoughness: 0.18,
       ior: 1.33,
       envMap: opts.envMap,
-      envMapIntensity: 0.8,
+      envMapIntensity: 0.42,
       normalMap: this.bump,
-      normalScale: new THREE.Vector2(0.07, 0.07),
+      normalScale: new THREE.Vector2(0.06, 0.06),
       fog: true,
     });
 
@@ -118,6 +128,8 @@ export class Ocean {
       const k = (Math.PI * 2) / w.length;
       return new THREE.Vector2(Math.sqrt(GRAVITY * k) * TIME_SCALE, w.steepness);
     });
+    this.waveA = waveA;
+    this.waveB = waveB;
 
     this.material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.uTime;
@@ -141,7 +153,7 @@ export class Ocean {
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.mesh.frustumCulled = false;
     // Water sits at y = 0; the far edge is well past the fog's far distance.
-    this.mesh.position.set(0, 0, -size / 2 + 150);
+    this.mesh.position.set(0, 0, -size / 2 + 100);
     this.update(this.reducedMotion ? 10 : 0);
   }
 
@@ -150,6 +162,21 @@ export class Ocean {
     this.uTime.value = time;
     // Drift the fine bump slowly across the swell direction.
     this.bump.offset.set(time * 0.012, -time * 0.007);
+  }
+
+  /**
+   * Surface height above the rest plane at world (x, z), same wave sum as the
+   * shader. Ignores the horizontal Gerstner shift, so allow a margin.
+   */
+  heightAt(x: number, z: number): number {
+    const t = this.uTime.value;
+    let y = 0;
+    for (let i = 0; i < this.waveA.length; i++) {
+      const a = this.waveA[i];
+      const w = this.waveB[i].x;
+      y += a.w * Math.sin(a.z * (a.x * x + a.y * z) - w * t);
+    }
+    return y;
   }
 
   dispose(): void {

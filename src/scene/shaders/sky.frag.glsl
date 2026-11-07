@@ -46,11 +46,12 @@ float fbm(vec3 p) {
 void main() {
   vec3 d = normalize(vWorldPos - cameraPosition);
 
-  // Ramp position: view height -0.01 .. 0.3 maps to 0 .. 1 (ocean_look.json).
+  // Ramp position: view height -0.01 .. 0.3 maps to 0 .. 1. A tall haze band
+  // melts into the deep blue; the zenith is only reached well above the frame.
   float t = clamp((d.y + 0.01) / 0.31, 0.0, 1.0);
-  vec3 col = mix(uHorizon, uLow, smoothstep(0.0, 0.06, t));
-  col = mix(col, uMid, smoothstep(0.06, 0.4, t));
-  col = mix(col, uTop, smoothstep(0.4, 1.0, t));
+  vec3 col = mix(uHorizon, uLow, smoothstep(0.06, 0.26, t));
+  col = mix(col, uMid, smoothstep(0.18, 0.6, t));
+  col = mix(col, uTop, smoothstep(0.55, 1.0, t));
 
   // Cirrus: noise stretched along the horizon (vertical axis compressed), with
   // a threshold so it reads as streaks, fading from the horizon to the zenith.
