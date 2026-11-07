@@ -171,6 +171,13 @@ if (descendBtn) {
   descendBtn.addEventListener('click', () => void descend());
 }
 
+const rewindBtn = document.getElementById('rewind') as HTMLButtonElement | null;
+if (rewindBtn) {
+  rewindBtn.addEventListener('pointerenter', () => sfx.play('hover'));
+  rewindBtn.addEventListener('focus', () => sfx.play('hover'));
+  rewindBtn.addEventListener('click', () => void ascend());
+}
+
 // Wheel: a decisive scroll moves a chapter; small deltas are ignored so a
 // trackpad's drift does not flip chapters. One move per gesture.
 let wheelArmed = true;
