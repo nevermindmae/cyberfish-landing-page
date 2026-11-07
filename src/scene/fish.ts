@@ -30,9 +30,11 @@ const SWAY_PITCH = 0.05;
 const SWAY_ROLL = 0.06;
 const SWAY_PERIODS = [11, 8.5, 14];
 /** Cursor response: drift toward the pointer and turn toward it. */
-const CURSOR_DRIFT = new THREE.Vector2(0.35, 0.22);
-const CURSOR_TURN = new THREE.Vector2(0.28, 0.16);
-const CURSOR_TAU = 1.8;
+const CURSOR_DRIFT = new THREE.Vector2(0.45, 0.35);
+const CURSOR_TURN = new THREE.Vector2(0.5, 0.45);
+const CURSOR_TAU = 1.1;
+/** How much the spine curves toward the cursor (head leads, tail trails). */
+const CURSOR_BEND = new THREE.Vector2(0.35, 0.5);
 
 // ------------------------------------------------------------------- fins
 /** Mesh kinds for the vertex shader. */
@@ -61,6 +63,7 @@ interface SharedUniforms {
   uSwim: THREE.IUniform<number>;
   uNoseZ: THREE.IUniform<number>;
   uTailZ: THREE.IUniform<number>;
+  uLook: THREE.IUniform<THREE.Vector2>;
 }
 
 const SWIM_CHUNK = /* glsl */ `
@@ -68,10 +71,20 @@ uniform float uTime;
 uniform float uSwim;
 uniform float uNoseZ;
 uniform float uTailZ;
+uniform vec2 uLook;
 uniform float uKind;
 uniform float uSide;
 
 const float TAU = 6.2831853;
+
+// Spine curve toward where the fish is looking: the head bends one way and
+// the tail trails the other, pivoting ~40% back from the nose.
+vec2 lookBend(float z) {
+  float len = uTailZ - uNoseZ;
+  float s = clamp((z - uNoseZ) / len, 0.0, 1.0);
+  float q = 0.4 - s;
+  return uLook * len * q * abs(q) * 0.6;
+}
 
 // Shallow body sway, nose -> tail. s: 0 at the nose, 1 at the tail-fin tip.
 float bodySway(float z) {
@@ -84,6 +97,7 @@ float bodySway(float z) {
 
 vec3 swimDisp(vec3 p) {
   vec3 d = vec3(bodySway(p.z), 0.0, 0.0);
+  d.xy += lookBend(p.z);
 
   if (uKind == 1.0) {
     // Tail fin: ripple that grows toward the trailing edge, plus the two
@@ -192,6 +206,7 @@ export class Fish {
       uSwim: { value: reducedMotion ? 0 : 1 },
       uNoseZ: { value: box.min.z },
       uTailZ: { value: box.max.z },
+      uLook: { value: new THREE.Vector2() },
     };
 
     // Pivot around the body's centre of mass so the sway rotates about it.
@@ -265,6 +280,11 @@ export class Fish {
     const yaw = SWAY_YAW * s(0) + this.cursor.x * CURSOR_TURN.x;
     const pitch = SWAY_PITCH * s(1) + this.cursor.y * CURSOR_TURN.y;
     const roll = SWAY_ROLL * s(2);
+    // Spine curve: nose up when looking up; yaw bends the nose toward -X.
+    this.uniforms.uLook.value.set(
+      -this.cursor.x * CURSOR_BEND.x,
+      this.cursor.y * CURSOR_BEND.y,
+    );
     _dir.copy(BASE_DIR).applyAxisAngle(_up, yaw);
     _dir.y += pitch;
     this.face(_dir.normalize(), roll);
