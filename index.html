@@ -110,11 +110,11 @@
         opacity: 0;
         visibility: hidden;
         transform: translateY(calc(-1 * var(--rise) + 12px));
-        /* Buttons fade in during the last part of the dock (delay ~ 2/3 of --dock-ms). */
+        /* Buttons fade and rise together with the mark's dock, same duration and ease. */
         transition:
-          opacity 600ms 1000ms,
-          transform 600ms 1000ms cubic-bezier(0.2, 0.8, 0.2, 1),
-          visibility 0s 1000ms;
+          opacity var(--dock-ms),
+          transform var(--dock-ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+          visibility 0s;
       }
       #loader.docked .enter {
         opacity: 1;

@@ -20,8 +20,8 @@ const EASE = 0.08;
  */
 const MIN_LOAD_MS = 2000;
 const DOCK_DELAY_MS = 500;
-/** Buttons' transition delay plus duration, see `.enter` in index.html. */
-const ENTER_READY_MS = 1000 + 600;
+/** Buttons animate with the dock (`--dock-ms` in index.html), no delay. */
+const ENTER_READY_MS = 1600;
 const FADE_MS = 600;
 
 /** What the visitor chose on the enter buttons. */
