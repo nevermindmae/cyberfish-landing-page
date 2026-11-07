@@ -11,7 +11,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  /* Breathing room from the viewport corners: ~52px in, ~44px down. */
+  padding: 20px 28px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 900ms ease 300ms;
@@ -50,81 +51,35 @@ html[data-entered] .nav {
   width: auto;
 }
 
-/* Sound toggle: a chamfered HUD chip (same language as the frame) holding a
-   sonar glyph and an SFX label. The rings ping outward while sound is on. */
+/* Sound toggle: a bare speaker glyph and label, set like the CTA (same mono,
+   same tracking) so it reads as part of the HUD rather than a widget. The
+   waves light up while sound is on. */
 .nav .sound {
-  --chamfer: 6px;
-  position: relative;
-  isolation: isolate;
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 12px 7px 9px;
+  gap: 12px;
+  /* No visible box; the padding only widens the hit target. */
+  padding: 6px 0 6px 8px;
   border: 0;
   background: none;
   cursor: pointer;
   color: var(--text-mid);
-  font: 500 12px/1 var(--font-mono);
-  letter-spacing: 0.14em;
+  font: 400 clamp(13px, 1.1vw, 15px) / 1 var(--font-mono);
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  --edge: rgba(138, 148, 171, 0.45);
-  --fill: rgba(6, 10, 20, 0.45);
+  text-shadow: 0 1px 14px rgba(6, 10, 20, 0.7);
   transition: color 160ms;
-}
-
-/* Chamfered chip: ::before is the 1px edge, ::after the fill inset by 1px. */
-.nav .sound::before,
-.nav .sound::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-  transition: background 160ms;
-}
-
-.nav .sound::before {
-  inset: 0;
-  background: var(--edge);
-  clip-path: polygon(
-    var(--chamfer) 0,
-    100% 0,
-    100% calc(100% - var(--chamfer)),
-    calc(100% - var(--chamfer)) 100%,
-    0 100%,
-    0 var(--chamfer)
-  );
-}
-
-.nav .sound::after {
-  inset: 1px;
-  background: var(--fill);
-  clip-path: polygon(
-    calc(var(--chamfer) - 0.6px) 0,
-    100% 0,
-    100% calc(100% - var(--chamfer) + 0.6px),
-    calc(100% - var(--chamfer) + 0.6px) 100%,
-    0 100%,
-    0 calc(var(--chamfer) - 0.6px)
-  );
 }
 
 .nav .sound:hover,
 .nav .sound:focus-visible {
-  color: var(--text);
-  --edge: rgba(138, 148, 171, 0.8);
-  --fill: rgba(46, 168, 255, 0.1);
+  color: var(--white);
   outline: none;
 }
 
 .nav .sound[aria-pressed='true'] {
   color: var(--white);
-  --edge: rgba(46, 168, 255, 0.6);
-}
-
-.nav .sound[aria-pressed='true']:hover,
-.nav .sound[aria-pressed='true']:focus-visible {
-  --edge: rgba(46, 168, 255, 0.95);
 }
 
 .nav .sound .sound-state {
@@ -139,6 +94,10 @@ html[data-entered] .nav {
 .nav .sound .speaker {
   display: block;
   overflow: visible;
+  /* Overrides the 20px width/height attributes in the markup. */
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 10px rgba(6, 10, 20, 0.6));
 }
 
 .nav .sound .speaker path {
@@ -206,6 +165,7 @@ html[data-entered] .nav {
     top: 16px;
     left: 16px;
     right: 16px;
+    padding: 12px 16px;
   }
   .nav .lockup {
     font-size: 20px;
