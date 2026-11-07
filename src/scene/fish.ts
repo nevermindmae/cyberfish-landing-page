@@ -22,9 +22,8 @@ const DRIFT_PERIODS = [13, 17, 23];
 /** Vertical bob. */
 const BOB_AMPLITUDE = 0.1;
 const BOB_PERIOD = 6.5;
-/** Base facing: nose to screen left (or right), turned a little toward the viewer. */
-const BASE_DIR_LEFT = new THREE.Vector3(-1, 0, 0.42).normalize();
-const BASE_DIR_RIGHT = new THREE.Vector3(1, 0, 0.42).normalize();
+/** Base facing: nose to screen right, turned a little toward the viewer. */
+const BASE_DIR = new THREE.Vector3(1, 0, 0.42).normalize();
 /** Slow attitude sway: yaw / pitch / roll amplitudes (rad) and periods (s). */
 const SWAY_YAW = 0.1;
 const SWAY_PITCH = 0.05;
@@ -63,8 +62,6 @@ export interface FishOptions {
   reducedMotion: boolean;
   /** renderer.capabilities.getMaxAnisotropy(); keeps thin traces from twinkling. */
   anisotropy: number;
-  /** Which screen side the nose points to. */
-  facing: 'left' | 'right';
 }
 
 interface SharedUniforms {
@@ -210,7 +207,6 @@ export class Fish {
   private readonly reducedMotion: boolean;
   private readonly cursor = new THREE.Vector2();
   private readonly uniforms: SharedUniforms;
-  private readonly baseDir: THREE.Vector3;
   /** When set, update() places the fish here instead of hovering. */
   private override: { pos: THREE.Vector3; dir: THREE.Vector3 } | null = null;
 
@@ -218,7 +214,6 @@ export class Fish {
     const { reducedMotion } = opts;
     this.centre = centre.clone();
     this.reducedMotion = reducedMotion;
-    this.baseDir = opts.facing === 'right' ? BASE_DIR_RIGHT : BASE_DIR_LEFT;
 
     const box = new THREE.Box3().setFromObject(model);
     this.uniforms = {
@@ -260,7 +255,7 @@ export class Fish {
 
     this.root.add(model);
     this.root.position.copy(centre);
-    this.face(this.baseDir, 0);
+    this.face(BASE_DIR, 0);
   }
 
   static load(
@@ -322,11 +317,9 @@ export class Fish {
 
     // Attitude: slow sway around the base facing, turned toward the cursor.
     const s = (i: number) => Math.sin((Math.PI * 2 * time) / SWAY_PERIODS[i]);
-    // Cursor behind the fish brings its face round toward the camera, cursor
-    // ahead of it looks away. The signs hold for either facing: a positive yaw
-    // turns a -X nose toward +Z and a +X nose away, and the local X axis from
-    // lookAt() flips with the facing too, so the spine bend mirrors itself.
-    // Cursor up lifts the nose.
+    // Cursor behind the fish (screen left) brings its face round toward the
+    // camera, cursor ahead of it looks away: a positive yaw turns the +X nose
+    // away from +Z. Cursor up lifts the nose.
     const yaw = SWAY_YAW * s(0) + this.cursor.x * CURSOR_TURN.x;
     const pitch = SWAY_PITCH * s(1) + this.cursor.y * CURSOR_TURN.y;
     const roll = SWAY_ROLL * s(2);
@@ -334,7 +327,7 @@ export class Fish {
       -this.cursor.x * CURSOR_BEND.x,
       this.cursor.y * CURSOR_BEND.y,
     );
-    _dir.copy(this.baseDir).applyAxisAngle(_up, yaw);
+    _dir.copy(BASE_DIR).applyAxisAngle(_up, yaw);
     _dir.y += pitch;
     this.face(_dir.normalize(), roll);
   }

@@ -56,19 +56,9 @@ window.addEventListener('pointerdown', () => sfx.unlock(), { once: true, capture
 const loader = new Loader(reducedMotion);
 loader.setProgress(0.15);
 
-// Layout variants for comparison (default: fish right, nose left, copy left).
-//   ?face=right     fish stays right but its nose points right
-//   ?layout=mirror  whole composition flipped: fish left facing right, copy right
-const params = new URLSearchParams(location.search);
-const mirrorLayout = params.get('layout') === 'mirror';
-const fishSide = mirrorLayout ? 'left' : 'right';
-const fishFacing = mirrorLayout || params.get('face') === 'right' ? 'right' : 'left';
-if (mirrorLayout) document.documentElement.dataset.layout = 'mirror';
-document.documentElement.dataset.facing = fishFacing;
-
-const scene = new CyberScene(root, { reducedMotion, mobile, fishSide, fishFacing });
+const scene = new CyberScene(root, { reducedMotion, mobile });
 // Dev: ?diveslow=4 plays the dive at quarter speed, and exposes the scene.
-const diveSlow = Number(params.get('diveslow'));
+const diveSlow = Number(new URLSearchParams(location.search).get('diveslow'));
 if (import.meta.env.DEV && diveSlow > 1) {
   scene.diveTimeScale = 1 / diveSlow;
   (window as unknown as { __scene: CyberScene }).__scene = scene;

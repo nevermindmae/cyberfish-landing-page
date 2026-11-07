@@ -1,12 +1,12 @@
-/* Hero tagline. Left of the fish in landscape, below it on portrait.
+/* Hero tagline. Right of the fish in landscape, below it on portrait.
    Type per BRAND.md: product name in Michroma (mixed case, 0.01em),
    paragraphs in JetBrains Mono. Fades in once the visitor has entered
    (html[data-entered]). */
 .hero {
   position: fixed;
   z-index: 4;
-  /* Right edge of the copy sits just short of the fish's nose (~46vw). */
-  right: 57vw;
+  /* Left edge of the copy sits just past the fish's nose (~54vw). */
+  left: 57vw;
   top: 50%;
   transform: translateY(calc(-50% + 12px));
   width: max-content;
@@ -22,20 +22,6 @@
 html[data-entered] .hero {
   opacity: 1;
   transform: translateY(-50%);
-}
-
-/* ?face=right: the tail now points at the copy and reaches further than
-   the nose did, so give it a little more room. */
-html[data-facing='right'] .hero {
-  right: 61vw;
-  max-width: calc(39vw - var(--frame-inset) - 12px);
-}
-
-/* ?layout=mirror: fish on the left (facing right), copy on the right. */
-html[data-layout='mirror'] .hero {
-  right: auto;
-  left: 57vw;
-  max-width: calc(43vw - var(--frame-inset) - 12px);
 }
 
 .hero-title {
@@ -62,9 +48,7 @@ html[data-layout='mirror'] .hero {
 }
 
 @media (max-aspect-ratio: 1/1) {
-  .hero,
-  html[data-facing] .hero {
-    right: auto;
+  .hero {
     left: calc(var(--frame-inset) + 12px);
     top: auto;
     /* Leaves room for the centred CTA underneath. */

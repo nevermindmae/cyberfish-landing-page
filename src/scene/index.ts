@@ -23,19 +23,14 @@ const FOV_PORTRAIT = 48;
 const FISH_ABOVE_CAMERA = 1.2;
 /**
  * Where the fish hovers (y is set per frame from the camera height). Offset
- * to one side in landscape to leave the other for the tagline; centred on
- * portrait screens where the copy sits below it.
+ * to screen left in landscape, nose pointing right, leaving the right half
+ * for the tagline.
  */
-const FOCUS_OFFSET_X = 1.9;
-const FOCUS = new THREE.Vector3(0, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
+const FOCUS = new THREE.Vector3(-1.9, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
 
 export interface SceneOptions {
   reducedMotion: boolean;
   mobile: boolean;
-  /** Which screen side the fish hovers on (landscape). */
-  fishSide: 'left' | 'right';
-  /** Which way its nose points. */
-  fishFacing: 'left' | 'right';
 }
 
 /** Mouse parallax: camera offset in world units and extra rotation in radians. */
@@ -52,10 +47,10 @@ const PARALLAX_TILT = 0.025;
 const DIVE_DURATION = 6;
 /** Churn ramps up over this window. */
 const DIVE_CHURN = [0.1, 1.6] as const;
-/** Where the fish goes in, relative to the camera's rest position (x is
- * scaled by the fish's side). Far enough out to land in the lower frame of
- * the long, slightly up-tilted hero lens. */
-const DIVE_HOLE = new THREE.Vector3(1.6, 0, 26);
+/** Where the fish goes in, relative to the camera's rest position: a little
+ * to its own (left) side, far enough out to land in the lower frame of the
+ * long, slightly up-tilted hero lens. */
+const DIVE_HOLE = new THREE.Vector3(-1.6, 0, 26);
 /** The fish's run from hover to the hole (ease-in). */
 const DIVE_FISH = [0.3, 1.6] as const;
 /** The camera sinks (smooth, slow) over this window, to this far below the
@@ -147,8 +142,7 @@ export class CyberScene {
   private readonly pointer = new THREE.Vector2();
   private readonly parallax = new THREE.Vector2();
   private resizeObserver: ResizeObserver;
-  /** FOCUS shifted to the configured side. */
-  private readonly focus: THREE.Vector3;
+  private readonly focus = FOCUS.clone();
   private diving: DiveState | null = null;
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
   private fishLights: Array<{ light: THREE.Light; intensity: number }> = [];
@@ -158,8 +152,6 @@ export class CyberScene {
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
     this.opts = opts;
-    this.focus = FOCUS.clone();
-    this.focus.x = opts.fishSide === 'left' ? -FOCUS_OFFSET_X : FOCUS_OFFSET_X;
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -230,7 +222,6 @@ export class CyberScene {
       {
         reducedMotion: this.opts.reducedMotion,
         anisotropy: this.renderer.capabilities.getMaxAnisotropy(),
-        facing: this.opts.fishFacing,
       },
       onProgress,
     );
@@ -280,9 +271,8 @@ export class CyberScene {
   dive(): Promise<void> {
     if (this.diving) return Promise.resolve();
     return new Promise((resolve) => {
-      const side = this.focus.x < 0 ? -1 : 1;
       const hole = new THREE.Vector3(
-        CAMERA_POS.x + DIVE_HOLE.x * side,
+        CAMERA_POS.x + DIVE_HOLE.x,
         0,
         CAMERA_POS.z - DIVE_HOLE.z,
       );
