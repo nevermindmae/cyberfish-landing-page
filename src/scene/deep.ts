@@ -75,7 +75,7 @@ const DEVICE_POS_PORTRAIT = new THREE.Vector3(0, -0.65, -DEVICE_DISTANCE);
  * radius; ours is wide and strong, so cap them here or the mark smears into
  * a white plate.
  */
-const DEVICE_EMISSIVE_MAX = 3.5;
+const DEVICE_EMISSIVE_MAX = 2.4;
 const DEVICE_TILT = 0.95;
 const DEVICE_TURN = -0.55;
 /** Model height is 3 cm with the base at y = 0: pivot about the middle. */
