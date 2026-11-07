@@ -21,6 +21,8 @@
     -->
     <style>
       #loader {
+        /* How far the wordmark and enter buttons rise to follow the docked mark. */
+        --rise: 72px;
         position: fixed;
         inset: 0;
         z-index: 10;
@@ -61,6 +63,19 @@
       #loader.docked #mark {
         transform: scale(0.42) translateY(-80px);
       }
+      /* Wordmark: Michroma, 34px large / 0.02em tracking per BRAND.md. Sits under
+         the mark at all times and rises with it when the mark docks. */
+      #loader .wordmark {
+        margin: 0;
+        font: 400 clamp(22px, 5.5vw, 34px) / 1 'Michroma', sans-serif;
+        letter-spacing: 0.02em;
+        color: #f2f4fa;
+        user-select: none;
+        transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      #loader.docked .wordmark {
+        transform: translateY(calc(-1 * var(--rise)));
+      }
       #loader .row {
         width: min(320px, 60vw);
         display: flex;
@@ -82,7 +97,6 @@
       }
       /* Enter buttons. Hidden until the mark has docked, then rise to sit under it. */
       #loader .enter {
-        --rise: 72px;
         width: min(260px, 80vw);
         display: flex;
         flex-direction: column;
@@ -138,13 +152,18 @@
       }
       /* Narrow screens: the mark box is shorter, so the buttons need less lift. */
       @media (max-width: 480px) {
-        #loader .enter {
+        #loader {
           --rise: 56px;
         }
       }
       @media (prefers-reduced-motion: reduce) {
         #loader.docked #mark {
           transform: none;
+        }
+        #loader .wordmark,
+        #loader.docked .wordmark {
+          transform: none;
+          transition: none;
         }
         #loader .enter {
           transform: none;
@@ -201,6 +220,7 @@
           <rect id="edgeline" x="30" y="-680" width="6" height="720" fill="#FFFFFF" />
         </g>
       </svg>
+      <p class="wordmark">CYBERFISH</p>
       <div class="foot">
         <div class="row" role="status" aria-live="polite">
           <div class="lbl" id="label">Loading content</div>
