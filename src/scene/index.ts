@@ -242,8 +242,11 @@ export class CyberScene {
     // A small point light at the belly lights the fish itself from below; a
     // wide area light under it throws a broad, diffuse glow onto the water
     // (a point source there would read as one hard hot spot).
-    const glow = new THREE.PointLight(OCEAN.fishGlow, 3, 0, 2);
-    glow.position.set(0, -1.0, 0);
+    // The belly light sits well below the fish and is cut off before the
+    // water: far enough that it washes the underside evenly instead of
+    // glaring off the metal in one spot, and never adding to the pool.
+    const glow = new THREE.PointLight(OCEAN.fishGlow, 0.9, 3.2, 2);
+    glow.position.set(0, -1.9, 0);
     const pool = new THREE.RectAreaLight(OCEAN.fishGlow, 5, 10, 6);
     pool.position.set(0, -1.6, 0);
     pool.rotation.x = -Math.PI / 2; // emit along -Y
