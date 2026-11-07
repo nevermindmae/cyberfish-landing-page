@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { Post } from './post';
 import { Fish, type ProgressCallback } from './fish';
 import { Sky } from './sky';
@@ -73,6 +74,8 @@ export class CyberScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setClearColor(COLORS.bg, 1);
     container.appendChild(this.renderer.domElement);
+    // LTC lookup tables for RectAreaLight (the fish's pool of light on the water).
+    RectAreaLightUniformsLib.init();
 
     this.camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.1, 1200);
     this.camera.position.set(CAMERA_POS.x, this.cameraY, CAMERA_POS.z);
@@ -138,13 +141,15 @@ export class CyberScene {
 
     // The fish is the scene's only neon: two blue point lights ride with it,
     // one at the belly and one lower down toward the water (ocean_look.json).
-    // Kept modest: on the glossy water these read as the fish's reflection,
-    // and too much of it swamps the dark foreground.
-    const glow = new THREE.PointLight(OCEAN.fishGlow, 4, 0, 2);
-    glow.position.set(0, -1.2, 0);
-    const glowLow = new THREE.PointLight(OCEAN.fishGlow, 0.7, 0, 2);
-    glowLow.position.set(0, -2.4, 0);
-    fish.root.add(glow, glowLow);
+    // A small point light at the belly lights the fish itself from below; a
+    // wide area light under it throws a broad, diffuse glow onto the water
+    // (a point source there would read as one hard hot spot).
+    const glow = new THREE.PointLight(OCEAN.fishGlow, 3, 0, 2);
+    glow.position.set(0, -1.0, 0);
+    const pool = new THREE.RectAreaLight(OCEAN.fishGlow, 5, 10, 6);
+    pool.position.set(0, -1.6, 0);
+    pool.rotation.x = -Math.PI / 2; // emit along -Y
+    fish.root.add(glow, pool);
 
     // Settle the heading before the first visible frame.
     fish.update(this.time, 1 / 60, this.pointer);

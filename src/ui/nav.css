@@ -23,7 +23,7 @@
   align-items: center;
   gap: 0.6em;
   color: var(--white);
-  font: 400 22px/1 var(--font-display);
+  font: 400 30px/1 var(--font-display);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   text-decoration: none;
@@ -122,62 +122,69 @@
   color: var(--accent);
 }
 
-/* Sonar glyph. */
-.nav .sound .ping {
+/* Speaker glyph: horn always; sound waves when on, a cross when off. */
+.nav .sound .speaker {
   display: block;
   overflow: visible;
 }
 
-.nav .sound .ping .dot {
-  fill: currentColor;
-}
-
-.nav .sound .ping .ring {
+.nav .sound .speaker path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.2;
-  opacity: 0.35;
-  transform-origin: 10px 10px;
-  transform: scale(0.55);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   transition:
-    transform 300ms,
-    opacity 300ms;
+    opacity 200ms,
+    stroke 200ms;
 }
 
-.nav .sound .ping .r2 {
-  opacity: 0.18;
-  transform: scale(0.4);
+.nav .sound .speaker .horn {
+  fill: currentColor;
+  stroke-width: 1;
 }
 
-.nav .sound[aria-pressed='true'] .ping .dot {
+.nav .sound .speaker .w1,
+.nav .sound .speaker .w2 {
+  opacity: 0;
+}
+
+.nav .sound .speaker .mute {
+  opacity: 0.7;
+}
+
+.nav .sound[aria-pressed='true'] .speaker .horn {
   fill: var(--accent);
-}
-
-.nav .sound[aria-pressed='true'] .ping .ring {
   stroke: var(--accent);
-  animation: sonar 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
 }
 
-.nav .sound[aria-pressed='true'] .ping .r2 {
-  animation-delay: 0.55s;
+.nav .sound[aria-pressed='true'] .speaker .w1,
+.nav .sound[aria-pressed='true'] .speaker .w2 {
+  stroke: var(--accent);
+  opacity: 1;
 }
 
-@keyframes sonar {
-  0% {
-    transform: scale(0.3);
-    opacity: 0.9;
-  }
+.nav .sound[aria-pressed='true'] .speaker .w2 {
+  animation: wave-pulse 1.8s ease-in-out infinite;
+}
+
+.nav .sound[aria-pressed='true'] .speaker .mute {
+  opacity: 0;
+}
+
+@keyframes wave-pulse {
+  0%,
   100% {
-    transform: scale(1);
-    opacity: 0;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav .sound[aria-pressed='true'] .ping .ring {
+  .nav .sound[aria-pressed='true'] .speaker .w2 {
     animation: none;
-    transform: scale(0.75);
-    opacity: 0.6;
   }
 }
 
@@ -188,7 +195,7 @@
     right: 16px;
   }
   .nav .lockup {
-    font-size: 18px;
+    font-size: 20px;
   }
   .nav .sound .sound-label {
     display: none;
