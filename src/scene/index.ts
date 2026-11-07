@@ -181,6 +181,8 @@ export class CyberScene {
   private device: Promise<GLTF | null> | null = null;
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
   private fishLights: Array<{ light: THREE.Light; intensity: number }> = [];
+  /** The sea's key and fill; off in the deep so its black plastic stays black. */
+  private heroLights: THREE.Light[] = [];
   /** Dev: slow the dive down (1 = real time) to inspect the transition. */
   diveTimeScale = 1;
 
@@ -233,6 +235,7 @@ export class CyberScene {
     this.scene.add(key, key.target);
     const fill = new THREE.HemisphereLight(OCEAN.fill, OCEAN.waterBase, 0.55);
     this.scene.add(fill);
+    this.heroLights = [key, fill];
 
     this.resize();
     this.post = new Post(this.renderer, this.scene, this.camera, {
@@ -611,8 +614,10 @@ export class CyberScene {
       await this.renderer.compileAsync(deep.root, this.camera, this.scene);
       if (this.deep === deep) deep.reveal();
     });
-    // The sky environment is far too bright for metal 6 m under the sea.
+    // The sky environment is far too bright for metal 6 m under the sea, and
+    // the sea's own lights would grey out the unit's black case.
     this.scene.environmentIntensity = 0.12;
+    for (const l of this.heroLights) l.visible = false;
     this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
   }
 
@@ -679,6 +684,7 @@ export class CyberScene {
     fog.far = WATER_FOG_FAR;
     this.renderer.setClearColor(COLORS.bg, 1);
     this.scene.environmentIntensity = 0.6;
+    for (const l of this.heroLights) l.visible = true;
 
     // update() puts the camera back at its rest; fade the sea in from here.
     this.risingT = 0;

@@ -75,7 +75,7 @@ const DEVICE_POS_PORTRAIT = new THREE.Vector3(0, -0.65, -DEVICE_DISTANCE);
  * radius; ours is wide and strong, so cap them here or the mark smears into
  * a white plate.
  */
-const DEVICE_EMISSIVE_MAX = 2.4;
+const DEVICE_EMISSIVE_MAX = 1.6;
 const DEVICE_TILT = 0.95;
 const DEVICE_TURN = -0.55;
 /** Model height is 3 cm with the base at y = 0: pivot about the middle. */
@@ -164,6 +164,15 @@ export class Deep {
           // Flat polished metal (port housings, shield) catches the key as
           // a solid white face; a little roughness turns that into a sheen.
           if (m.metalness > 0.5) m.roughness = Math.max(m.roughness, 0.5);
+        }
+        // The case and lid are a satin black in the renders; under our key
+        // the clearcoat and low roughness read as grey. Matte keeps it black.
+        if (m instanceof THREE.MeshPhysicalMaterial && m.name === 'DK_LidPlastic') {
+          m.clearcoat = 0;
+          m.roughness = 0.65;
+        }
+        if (m instanceof THREE.MeshStandardMaterial && m.name === 'DK_CasePlastic') {
+          m.roughness = 0.65;
         }
       }
     });
