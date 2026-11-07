@@ -29,6 +29,12 @@ html[data-diving][data-deep] .nav {
   transition: opacity 1200ms ease 2200ms;
 }
 
+/* ...and sinks away again on the way back up. */
+html[data-deep][data-surfacing] .nav {
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nav {
     transition: opacity 300ms;

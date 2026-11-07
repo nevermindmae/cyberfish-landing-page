@@ -3,6 +3,7 @@ import './ui/base.css';
 import './ui/nav.css';
 import './ui/hero.css';
 import './ui/cta.css';
+import './ui/back.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { CyberScene } from './scene';
@@ -112,5 +113,24 @@ if (deploy) {
     deploy.disabled = true;
     await scene.dive({ onSplash: () => void sfx.play('dive') });
     html.dataset.deep = '';
+  });
+}
+
+// "Back to top": the deep goes dark and the sea returns. The HUD comes back
+// with it once the frame is black, and the decoy can be deployed again.
+const backTop = document.getElementById('back-top') as HTMLButtonElement | null;
+if (backTop) {
+  backTop.addEventListener('pointerenter', () => sfx.play('hover'));
+  backTop.addEventListener('focus', () => sfx.play('hover'));
+  backTop.addEventListener('click', async () => {
+    const html = document.documentElement;
+    if (!('deep' in html.dataset) || 'surfacing' in html.dataset) return;
+    html.dataset.surfacing = '';
+    void sfx.play('confirm1');
+    await scene.surface();
+    delete html.dataset.diving;
+    delete html.dataset.deep;
+    delete html.dataset.surfacing;
+    if (deploy) deploy.disabled = false;
   });
 }

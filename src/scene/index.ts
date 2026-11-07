@@ -74,6 +74,9 @@ const DEEP_BG = '#02050c';
 const DEEP_FADE_IN = 3.2;
 const DEEP_PARALLAX_SHIFT = new THREE.Vector2(1.4, 0.8);
 const DEEP_PARALLAX_TILT = 0.05;
+/** Back to the top: the deep goes dark, then the sea returns out of black. */
+const SURFACE_FADE_OUT = 1.2;
+const SURFACE_FADE_IN = 2.6;
 
 const easeInQuad = (t: number): number => t * t;
 const window01 = (t: number, [a, b]: readonly [number, number]): number =>
@@ -168,6 +171,9 @@ export class CyberScene {
   /** Seconds since the hand-off, and the camera's rest point down there. */
   private deepT = 0;
   private readonly deepBase = new THREE.Vector3();
+  /** Leaving the deep: its fade to black, then the sea's fade back in. */
+  private surfacing: { t: number; resolve: () => void } | null = null;
+  private risingT = -1;
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
   private fishLights: Array<{ light: THREE.Light; intensity: number }> = [];
   /** Dev: slow the dive down (1 = real time) to inspect the transition. */
@@ -322,6 +328,18 @@ export class CyberScene {
   }
 
   /**
+   * Back to the top: the deep fades to black, the sea is put back as it was
+   * and fades in. Resolves at the black frame, so the HUD can return along
+   * with the picture.
+   */
+  surface(): Promise<void> {
+    if (!this.deep || this.surfacing) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.surfacing = { t: 0, resolve };
+    });
+  }
+
+  /**
    * Compile all shaders now so the first visible frame does not stutter.
    * Rendering one frame through the composer compiles the exact program
    * variants used in production (render-target path, no on-screen tone mapping).
@@ -420,6 +438,20 @@ export class CyberScene {
 
     if (this.diving) this.updateDive(this.diving, dt);
     this.sky.follow(this.camera);
+
+    // Back from the deep: the sea comes up out of the black.
+    if (this.risingT >= 0) {
+      this.risingT += dt;
+      const k = THREE.MathUtils.smoothstep(this.risingT / SURFACE_FADE_IN, 0, 1);
+      this.post.setDive({
+        time: this.risingT,
+        wobble: 0.3 * (1 - k),
+        flash: 0,
+        deep: 1 - k,
+        dark: 1 - k,
+      });
+      if (k >= 1) this.risingT = -1;
+    }
   }
 
   /** Overrides the camera and drives the water / post effects during the dive. */
@@ -570,6 +602,16 @@ export class CyberScene {
     this.camera.rotateY(-this.parallax.x * DEEP_PARALLAX_TILT);
     this.camera.rotateX(this.parallax.y * DEEP_PARALLAX_TILT * 0.6);
 
+    // Leaving: back into the black, then hand over to the sea.
+    if (this.surfacing) {
+      const s = this.surfacing;
+      s.t += dt;
+      const k = THREE.MathUtils.smoothstep(s.t / SURFACE_FADE_OUT, 0, 1);
+      this.post.setDive({ time: this.deepT, wobble: 0.3 * k, flash: 0, deep: k * 0.5, dark: k });
+      if (k >= 1) this.leaveDeep(deep, s);
+      return;
+    }
+
     // Surface out of the black; the lens wobble settles with it.
     const k = THREE.MathUtils.smoothstep(this.deepT / DEEP_FADE_IN, 0, 1);
     this.post.setDive({
@@ -579,6 +621,35 @@ export class CyberScene {
       deep: 1 - k,
       dark: 1 - k,
     });
+  }
+
+  /** The frame is black: put the sea back exactly as it was before the dive. */
+  private leaveDeep(deep: Deep, s: { resolve: () => void }): void {
+    this.scene.remove(deep.root);
+    deep.dispose();
+    this.deep = null;
+    this.surfacing = null;
+
+    this.ocean.mesh.visible = true;
+    this.sky.mesh.visible = true;
+    this.ocean.churn = 0;
+    this.ocean.glow = 0;
+    this.ocean.material.normalScale.setScalar(0.06);
+    if (this.fish) {
+      this.fish.steer(null);
+      this.fish.root.visible = true;
+      for (const { light, intensity } of this.fishLights) light.intensity = intensity;
+    }
+    const fog = this.scene.fog as THREE.Fog;
+    fog.color.copy(OCEAN.waterFog);
+    fog.near = WATER_FOG_NEAR;
+    fog.far = WATER_FOG_FAR;
+    this.renderer.setClearColor(COLORS.bg, 1);
+
+    // update() puts the camera back at its rest; fade the sea in from here.
+    this.risingT = 0;
+    this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
+    s.resolve();
   }
 
   /** Look straight ahead from the current height, pitched up by CAMERA_PITCH_UP. */
