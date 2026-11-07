@@ -68,7 +68,7 @@ export class Post {
     this.grain = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        uGrain: { value: 0.09 },
+        uGrain: { value: 0.07 },
         uGrainSize: { value: pr },
         uVignette: { value: 0.45 },
         uDiveTime: { value: 0 },
