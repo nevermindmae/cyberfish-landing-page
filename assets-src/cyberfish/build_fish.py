@@ -155,20 +155,47 @@ def mesh_from_grid(name, grid, uv_fn, close_u=False, close_v=False, caps=(), xfo
     for p in me.polygons: p.use_smooth = True
     return me
 
-def make_fin(name, rays, samples=10, uv_rect=(0, 0, 1, 1), thickness=0.014, xform=lambda p: p):
+FIN_SUB = 3            # interpolated membrane rows between two bony rays
+RAY_THICK = 0.026      # fin thickness on a ray
+MEMBRANE_FACTOR = 0.28 # membrane thickness as a fraction of the ray thickness
+
+def _lerp_ray(a, b, t):
+    return dict(root=a["root"].lerp(b["root"], t), dir=(a["dir"].lerp(b["dir"], t)).normalized(),
+                length=a["length"] * (1 - t) + b["length"] * t, curl=a["curl"].lerp(b["curl"], t))
+
+def make_fin(name, rays, samples=10, uv_rect=(0, 0, 1, 1), thickness=None, xform=lambda p: p):
+    """Fan fin. Bony rays are the given list; FIN_SUB membrane rows are interpolated between them and get
+    a lower Solidify thickness through a vertex group -> real ribbing in the silhouette and shading."""
+    thickness = thickness or RAY_THICK
+    full, weights = [], []
+    for i, r in enumerate(rays):
+        full.append(r); weights.append(1.0)
+        if i < len(rays) - 1:
+            for k in range(1, FIN_SUB + 1):
+                t = k / (FIN_SUB + 1)
+                full.append(_lerp_ray(r, rays[i + 1], t))
+                # membrane sags between rays: thinnest in the middle
+                weights.append(0.0 + 0.25 * (abs(t - 0.5) * 2) ** 2)
     grid = []
-    for r in rays:
+    for r in full:
         row = []
         for k in range(samples + 1):
             f = k / samples
             row.append(r["root"] + r["dir"] * (r["length"] * f) + r["curl"] * (f * f))
         grid.append(row)
-    u0, v0, u1, v1 = uv_rect; nr = len(rays)
+    u0, v0, u1, v1 = uv_rect; nr = len(full)
     uv = lambda i, j: (u0 + (u1 - u0) * i / (nr - 1), v0 + (v1 - v0) * j / samples)
     me = mesh_from_grid(name, grid, uv, xform=xform)
     ob = bpy.data.objects.new(name, me); link(ob)
+    vg = ob.vertex_groups.new(name="Rays")
+    for i, w in enumerate(weights):
+        # mesh_from_grid creates verts row by row, (samples+1) per row; rays taper toward the edge
+        for j in range(samples + 1):
+            edge = j / samples
+            vg.add([i * (samples + 1) + j], max(w, 0.0) * (1.0 - 0.45 * edge) + (1 - max(w, 0.0)) * 0.0, 'REPLACE')
     sol = ob.modifiers.new("Solidify", 'SOLIDIFY'); sol.thickness = thickness; sol.offset = 0
     sol.use_even_offset = True
+    sol.vertex_group = "Rays"; sol.thickness_vertex_group = MEMBRANE_FACTOR
     return ob
 
 # ------------------------------------------------------------------ scene prep
@@ -257,7 +284,7 @@ for i in range(m):
     rays.append(dict(root=root, dir=nrm((0, -math.cos(phi), math.sin(phi))),
                      length=1.55 + 1.25 * fork ** 1.6,
                      curl=Vector((0.28 * math.sin(f * math.pi * 2.0) + 0.12, -0.25, 0.55 * (0.5 - f)))))
-fins.append(make_fin("CF_FinTail", rays, 16, (0.02, 0.02, 0.98, 0.98), thickness=0.016, xform=pose_spine))
+fins.append(make_fin("CF_FinTail", rays, 16, (0.02, 0.02, 0.98, 0.98), thickness=0.03, xform=pose_spine))
 
 # ------------------------------------------------------------------ eyes
 eyes = []

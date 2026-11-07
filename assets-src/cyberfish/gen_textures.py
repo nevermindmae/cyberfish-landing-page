@@ -288,21 +288,30 @@ def fin_atlas(name, rects, size=1024):
     for (u0, v0, u1, v1, nrays) in rects:
         inside = (Uf >= u0) & (Uf <= u1) & (Vf >= v0) & (Vf <= v1)
         s = np.clip((Uf - u0) / (u1 - u0), 0, 1); r = np.clip((Vf - v0) / (v1 - v0), 0, 1)
-        # main rays + intermediate finer rays, fanning (constant in s since the mesh is a fan)
+        # bony rays (lepidotrichia): sharp ridges that fan out, bifurcating in the outer half
         nr = nrays - 1
-        ray_main = np.exp(-((np.mod(s * nr + 0.5, 1) - 0.5) * (u1 - u0) * size / 3.2) ** 2)
-        ray_fine = np.exp(-((np.mod(s * nr * 2 + 0.5, 1) - 0.5) * (u1 - u0) * size / 2.2) ** 2) * 0.5
-        rays = np.maximum(ray_main, ray_fine) * (0.35 + 0.65 * smoothstep(0.0, 0.25, r))
-        # membrane: soft blue toward the edge, rays stay whiter
-        edge = r ** 1.8
-        col = np.array([0.94, 0.96, 0.98]) * (1 - edge[..., None]) + np.array([0.74, 0.86, 0.99]) * edge[..., None]
-        col = col * (1 - rays[..., None] * 0.18) + np.array([0.97, 0.98, 1.0]) * rays[..., None] * 0.18
+        px_per_ray = (u1 - u0) * size / nr
+        d_main = np.abs(np.mod(s * nr + 0.5, 1) - 0.5) * px_per_ray            # px distance to nearest main ray
+        d_half = np.abs(np.mod(s * nr * 2 + 0.5, 1) - 0.5) * px_per_ray / 2     # nearest half ray (branch)
+        ray_main = np.exp(-(d_main / 2.6) ** 2)
+        branch = np.exp(-(d_half / 1.9) ** 2) * smoothstep(0.45, 0.6, r)         # branches appear from mid-fin outward
+        rays = np.maximum(ray_main, branch * 0.7)
+        # rays are segmented (tiny joints every few % of the length) and taper toward the edge
+        joints = 1 - 0.20 * np.exp(-((np.mod(r * 30, 1) - 0.5) / 0.10) ** 2) * smoothstep(0.08, 0.2, r)
+        taper = 1.0 - 0.35 * r
+        ridge = rays * joints * taper * (0.4 + 0.6 * smoothstep(0.0, 0.08, r))
+        # membrane: translucent, slightly sagging between rays, bluish toward the edge
+        edge = r ** 1.6
+        sag = (1 - ray_main) * 0.12
+        col = np.array([0.95, 0.96, 0.99]) * (1 - edge[..., None]) + np.array([0.70, 0.82, 0.99]) * edge[..., None]
+        col = col * (1 - rays[..., None] * 0.08) + np.array([0.99, 0.99, 1.0]) * rays[..., None] * 0.08
         base = np.where(inside[..., None], col, base)
-        height = np.where(inside, rays * 0.9 + 0.08 * np.sin(r * 40) * (1 - r), height)
-        em = np.where(inside[..., None], (np.array([0.30, 0.65, 1.0]) * (rays * r ** 2.5 * 0.9 + edge * 0.08)[..., None]), em)
-        alpha = np.where(inside, 1 - 0.06 * r ** 3 * (1 - rays * 0.6), alpha)
-        rough = np.where(inside, 0.42 - 0.12 * rays - 0.1 * edge, rough)
-    normal = normal_from_height(height, strength=5.0)
+        height = np.where(inside, ridge * 1.0 - sag, height)
+        em = np.where(inside[..., None], (np.array([0.30, 0.65, 1.0]) * (rays * r ** 2.2 * 0.55 + edge * 0.05)[..., None]), em)
+        alpha = np.where(inside, 0.62 + 0.38 * rays + 0.12 * (1 - r) * (1 - rays), alpha)          # membrane see-through, rays solid
+        alpha = np.where(inside, np.clip(alpha, 0, 1), alpha)
+        rough = np.where(inside, 0.45 - 0.2 * rays - 0.08 * edge, rough)
+    normal = normal_from_height(height, strength=11.0)
     orm = np.stack([np.ones_like(rough), np.clip(rough, 0.05, 1), np.zeros_like(rough)], -1)
     save_image(name + "_basecolor", base, alpha)
     save_image(name + "_orm", orm, noncolor=True)
