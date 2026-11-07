@@ -23,18 +23,84 @@
   align-items: center;
   gap: 0.6em;
   color: var(--white);
-  font: 400 16px/1 var(--font-display);
+  font: 400 22px/1 var(--font-display);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   text-decoration: none;
   user-select: none;
 }
 
-/* Michroma's cap height is ~0.72em: 16px text -> 11.5px mark. */
+/* Michroma's cap height is ~0.72em. */
 .nav .lockup .mark {
   display: block;
-  height: 11.5px;
+  height: 0.72em;
   width: auto;
+}
+
+/* Sound toggle: HUD label + a waveform that only moves while sound is on. */
+.nav .sound {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--text-mid);
+  font: 500 12px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: color 160ms;
+}
+
+.nav .sound:hover,
+.nav .sound:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.nav .sound[aria-pressed='true'] {
+  color: var(--white);
+}
+
+.nav .sound .wave {
+  display: block;
+  overflow: hidden;
+}
+
+.nav .sound .wave path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  /* One wavelength is 8 units; sliding by 8 loops seamlessly. */
+  transition: d 300ms;
+}
+
+.nav .sound[aria-pressed='true'] .wave path {
+  stroke: var(--accent);
+  animation: wave-slide 1.1s linear infinite;
+}
+
+/* Off: the wave flattens to a line. */
+.nav .sound[aria-pressed='false'] .wave path {
+  d: path('M1 6 Q5 6 9 6 T17 6 T25 6 T33 6 T41 6');
+}
+
+@keyframes wave-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav .sound[aria-pressed='true'] .wave path {
+    animation: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -42,5 +108,11 @@
     top: 16px;
     left: 16px;
     right: 16px;
+  }
+  .nav .lockup {
+    font-size: 18px;
+  }
+  .nav .sound .sound-label {
+    display: none;
   }
 }

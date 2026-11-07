@@ -138,10 +138,12 @@ export class CyberScene {
 
     // The fish is the scene's only neon: two blue point lights ride with it,
     // one at the belly and one lower down toward the water (ocean_look.json).
-    const glow = new THREE.PointLight(OCEAN.fishGlow, 5, 0, 2);
-    glow.position.set(0, -1.4, 0);
-    const glowLow = new THREE.PointLight(OCEAN.fishGlow, 1.6, 0, 2);
-    glowLow.position.set(0, -3.0, 0);
+    // Kept modest: on the glossy water these read as the fish's reflection,
+    // and too much of it swamps the dark foreground.
+    const glow = new THREE.PointLight(OCEAN.fishGlow, 4, 0, 2);
+    glow.position.set(0, -1.2, 0);
+    const glowLow = new THREE.PointLight(OCEAN.fishGlow, 0.7, 0, 2);
+    glowLow.position.set(0, -2.4, 0);
     fish.root.add(glow, glowLow);
 
     // Settle the heading before the first visible frame.
