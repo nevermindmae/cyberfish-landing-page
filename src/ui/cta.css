@@ -23,8 +23,8 @@
   cursor: pointer;
   opacity: 0;
   transition:
-    opacity 900ms ease 500ms,
-    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 500ms,
+    opacity 900ms ease 1200ms,
+    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 1200ms,
     color 200ms ease;
 }
 

@@ -25,10 +25,24 @@ a {
   text-decoration: none;
 }
 
+/* The scene renders behind the loader from the first frame but stays dark
+   until the visitor enters; then it surfaces slowly, with a slight settle,
+   while the overlay (same colour as --bg) fades away on top of it. */
 #scene {
   position: fixed;
   inset: 0;
   z-index: 0;
+  opacity: 0;
+  transform: scale(1.035);
+  transform-origin: 50% 50%;
+  transition:
+    opacity 2600ms cubic-bezier(0.3, 0.1, 0.25, 1),
+    transform 3600ms cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+
+html[data-entering] #scene {
+  opacity: 1;
+  transform: none;
 }
 
 #scene canvas {
@@ -40,5 +54,10 @@ a {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  #scene {
+    transform: none;
+    transition: opacity 600ms ease;
   }
 }

@@ -1,6 +1,7 @@
 /* Top nav. Sits inside the 24px HUD inset; the lockup follows BRAND.md:
    mark at the cap height of the adjacent text, 0.6em gap, never taller
-   than the text. Hidden behind the loader until it fades. */
+   than the text. Hidden behind the loader; fades in once the visitor has
+   entered, a beat after the scene has started to surface. */
 .nav {
   position: fixed;
   top: 24px;
@@ -12,6 +13,18 @@
   justify-content: space-between;
   padding: 8px 12px;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 900ms ease 300ms;
+}
+
+html[data-entered] .nav {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav {
+    transition: opacity 300ms;
+  }
 }
 
 .nav > * {

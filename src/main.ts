@@ -50,6 +50,15 @@ document.getElementById('enter-sound')?.addEventListener('click', () => {
 // start the context and decode the buffers then, so the click plays at once.
 window.addEventListener('pointerdown', () => sfx.unlock(), { once: true, capture: true });
 
+// Either enter button: the scene starts to surface from the dark at once
+// (html[data-entering], see base.css), underneath the overlay's own fade, so
+// the two dissolve into each other instead of the picture snapping on.
+for (const id of ['enter-sound', 'enter-mute']) {
+  document.getElementById(id)?.addEventListener('click', () => {
+    document.documentElement.dataset.entering = '';
+  });
+}
+
 // Progress milestones. Reaching this script means the module graph (three.js
 // included) has been fetched and evaluated. The fish GLB (~9.5 MB) is the
 // bulk of the load, so its download drives the 0.2..0.9 band.
