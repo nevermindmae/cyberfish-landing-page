@@ -143,16 +143,11 @@ grooves = np.maximum(grooves, groove_u(0.5, 0.0022, 0.03, 0.160))               
 # mouth: a short straight slit on the underside of the snout — where a fish mouth is, not a face
 grooves = np.maximum(grooves, np.exp(-((V - 0.020) / 0.0026) ** 2) * (1 - smoothstep(0.055, 0.075, DU)))
 
-# eye pods: dark glossy teardrop housings, pointed toward the tail, that the eye spheres sit in
-pods = np.zeros_like(U); pod_edge = np.zeros_like(U)
+# eyes sit directly in the white shell: only a soft shadow seat right around each sphere (no dark pods)
+pods = np.zeros_like(U)
 for sgn in (-1, 1):
-    du = (U - (0.5 + sgn * 0.33)) / 0.042
-    dv = (V - 0.072) / 0.036
-    dvs = dv * (1 - 0.66 * np.clip(dv, 0, 1))              # stretch the back half into a point
-    rr = np.sqrt(du * du + dvs * dvs)
-    pods = np.maximum(pods, 1 - smoothstep(0.96, 1.04, rr))
-    pod_edge = np.maximum(pod_edge, np.exp(-((rr - 1.0) / 0.06) ** 2))
-grooves = np.maximum(grooves, pod_edge * 0.8)
+    seat = np.exp(-(((U - (0.5 + sgn * 0.33)) / 0.030) ** 2 + ((V - 0.072) / 0.028) ** 2))
+    pods = np.maximum(pods, seat)
 ports = np.zeros_like(U)
 face = pods            # kept name: used below for recess / metal
 head_mask = 1 - smoothstep(0.16, 0.2, V)
@@ -252,7 +247,7 @@ for sgn in (-1, 1):   # two sensor dots behind each eye
 
 # --- height -> normal ----------------------------------------------------------
 height = sc_h * sc_amp * 1.0
-height = height - grooves * 0.9 - face * 0.5 - plate_step + ridge * 0.35 + circuit * 0.25 + dots * 0.4
+height = height - grooves * 0.9 - face * 0.25 - plate_step + ridge * 0.35 + circuit * 0.25 + dots * 0.4
 noise = rng.normal(0, 1, (H // 8, W // 8)).astype(np.float32)
 noise = np.kron(noise, np.ones((8, 8), np.float32))
 height = height + noise * 0.01
@@ -273,7 +268,7 @@ base = base * (1 - micro[..., None] * 0.6) + np.array([0.55, 0.85, 1.0]) * micro
 cmix = circuit[..., None]
 base = base * (1 - cmix) + np.array([0.62, 0.90, 1.0]) * cmix
 base = base * (1 - grooves[..., None] * 0.55)
-base = base * (1 - face[..., None] * 0.85) + np.array([0.035, 0.045, 0.085]) * face[..., None] * 0.85   # dark glossy eye pods
+base = base * (1 - face[..., None] * 0.35)                                                        # soft eye seat shadow
 base = base * (1 - ridge[..., None] * 0.06)
 dark = ports
 base = base * (1 - dark[..., None]) + np.array([0.03, 0.04, 0.07]) * dark[..., None]
@@ -291,9 +286,9 @@ em = np.clip(em, 0, 1)
 # --- ORM --------------------------------------------------------------------------
 rough = 0.30 + 0.12 * (1 - np.clip(sc_h, 0, 1)) * sc_amp + grooves * 0.3
 rough = rough * (1 - head_mask) + 0.16 * head_mask
-rough = rough * (1 - face * 0.6) + 0.06 * face * 0.6 + dark * 0.3
+rough = rough + dark * 0.3
 rough = rough * (1 - belly * 0.3) - circuit * 0.12
-metal = 0.06 * (1 - head_mask) + 0.45 * head_mask * (1 - face * 0.6) * (1 - dark)
+metal = 0.06 * (1 - head_mask) + 0.45 * head_mask * (1 - dark)
 orm = np.stack([np.ones_like(rough), np.clip(rough, 0.05, 1), np.clip(metal, 0, 1)], -1)
 
 # --- front plate (own UV island): machined face plate with intake slot, notch, sensor pairs ----------
