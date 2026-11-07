@@ -36,9 +36,17 @@ toggle?.addEventListener('click', () => {
   if (on) sfx.play('confirm1');
 });
 
-// Unlock audio inside the enter gesture itself (Safari needs the call stack),
-// so the confirmation can play the moment the loader has faded.
-document.getElementById('enter-sound')?.addEventListener('click', () => sfx.unlock());
+// "Enter with sound": unlock inside the gesture itself (Safari needs the
+// call stack) and play the confirmation right away, not after the loader's
+// fade.
+document.getElementById('enter-sound')?.addEventListener('click', () => {
+  sfx.unlock();
+  sfx.setEnabled(true);
+  sfx.play('confirm2');
+});
+// pointerdown is already a user activation and lands ~100 ms before click:
+// start the context and decode the buffers then, so the click plays at once.
+window.addEventListener('pointerdown', () => sfx.unlock(), { once: true, capture: true });
 
 // Progress milestones. Reaching this script means the module graph (three.js
 // included) has been fetched and evaluated. The fish GLB (~9.5 MB) is the
@@ -80,12 +88,10 @@ scene.start();
 // First frame is on screen behind the overlay; reveal.
 requestAnimationFrame(() => loader.setProgress(1));
 
-// The visitor's enter choice. The click on the enter button is the user
-// gesture that unlocks audio; "Enter with sound" plays confirmation 2.
+// The visitor's enter choice (sound itself was handled in the click above).
 loader.done.then(({ sound }) => {
   document.documentElement.dataset.entered = '';
   sfx.setEnabled(sound);
-  if (sound) sfx.play('confirm2');
 });
 
 // "Deploy The Decoy?": dive under. The HUD sinks away, the camera goes
