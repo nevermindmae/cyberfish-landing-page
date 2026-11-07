@@ -36,7 +36,7 @@ html[data-entered] .hero {
 .hero-lead,
 .hero-sub {
   margin: 0;
-  font: 400 clamp(16px, 1.45vw, 20px) / 1.65 var(--font-mono);
+  font: 400 clamp(18px, 1.8vw, 25px) / 1.6 var(--font-mono);
   max-width: 32ch;
   color: var(--text);
   /* Lifts the copy off the pale haze band behind it. */
@@ -53,7 +53,7 @@ html[data-entered] .hero {
     left: calc(var(--frame-inset) + 12px);
     top: auto;
     /* Leaves room for the centred CTA underneath. */
-    bottom: calc(var(--frame-inset) + 96px);
+    bottom: calc(var(--frame-inset) + 110px);
     transform: translateY(12px);
     width: min(440px, calc(100vw - 2 * var(--frame-inset) - 24px));
     max-width: none;
@@ -67,12 +67,12 @@ html[data-entered] .hero {
 @media (max-width: 480px) {
   .hero {
     left: 16px;
-    bottom: 96px;
+    bottom: 124px;
   }
 
   .hero-lead,
   .hero-sub {
-    font-size: 15px;
+    font-size: 17px;
   }
 }
 

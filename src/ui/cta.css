@@ -16,7 +16,7 @@
   border: 0;
   background: none;
   color: var(--text);
-  font: 400 clamp(15px, 1.35vw, 19px) / 1 var(--font-mono);
+  font: 400 clamp(17px, 1.7vw, 24px) / 1 var(--font-mono);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   text-shadow: 0 1px 14px rgba(6, 10, 20, 0.7);
@@ -34,12 +34,14 @@ html[data-entered] .cta {
 }
 
 .cta-label {
+  /* left: 50% only offers half the viewport as available width; never wrap. */
+  white-space: nowrap;
   animation: cta-breathe 4.2s ease-in-out infinite;
 }
 
 .cta-arrow {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.4;
@@ -113,7 +115,7 @@ html[data-dived] .dive-screen {
 @media (max-width: 480px) {
   .cta {
     bottom: 18px;
-    font-size: 14px;
+    font-size: 16px;
   }
 }
 

@@ -15,7 +15,7 @@ const FILES: Record<SfxName, string> = {
 };
 
 const GAIN: Record<SfxName, number> = {
-  hover: 0.35,
+  hover: 0.7,
   confirm1: 0.7,
   confirm2: 0.7,
   error: 0.6,
