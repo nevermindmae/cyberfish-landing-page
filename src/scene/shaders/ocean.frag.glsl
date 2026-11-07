@@ -7,7 +7,7 @@
 
 uniform vec3 uBaseColor;
 uniform vec3 uCrestColor;
-uniform vec3 uHorizonColor;
+uniform vec3 uSheenColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform vec3 uFishPos;
@@ -35,16 +35,16 @@ void main() {
   // Crest shading: higher and more tilted water catches more light.
   float lift = smoothstep(-1.2, 2.6, vHeight);
   float slope = 1.0 - clamp(n.y, 0.0, 1.0);
-  float crest = clamp(lift * 0.5 + slope * 1.4, 0.0, 1.0) * detail;
+  float crest = clamp(lift * 0.7 + slope * 2.0, 0.0, 1.0) * detail;
   vec3 col = mix(uBaseColor, uCrestColor, crest);
 
   // Soft wrap diffuse from the single cool light.
   float diff = clamp(dot(n, l) * 0.5 + 0.5, 0.0, 1.0);
-  col *= mix(1.0, 0.8 + 0.7 * diff, detail);
+  col *= mix(1.0, 0.7 + 0.8 * diff, detail);
 
-  // Fresnel: grazing angles pick up the sky haze.
-  float fres = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 3.0);
-  col = mix(col, uHorizonColor, fres * 0.5);
+  // Grazing angles pick up a cool silvery sheen, fading with distance.
+  float fres = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 2.5);
+  col = mix(col, uSheenColor, fres * 0.65 * detail);
 
   // One tight specular lobe, plus a wider soft sheen. Kept off the very
   // nearest water, where the grid is coarse and the lobe would smear.

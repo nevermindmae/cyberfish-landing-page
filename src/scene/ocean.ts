@@ -30,7 +30,7 @@ export class Ocean {
         uWaveB: { value: waves.b },
         uBaseColor: { value: COLORS.waterBase.clone() },
         uCrestColor: { value: COLORS.waterCrest.clone() },
-        uHorizonColor: { value: COLORS.skyHorizon.clone() },
+        uSheenColor: { value: COLORS.waterSheen.clone() },
         uLightDir: { value: LIGHT_DIR.clone() },
         uLightColor: { value: COLORS.light.clone() },
         uFishPos: { value: new THREE.Vector3(0, 5, -20) },

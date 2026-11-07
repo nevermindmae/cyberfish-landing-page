@@ -70,8 +70,12 @@ export class CyberScene {
 
     this.resize();
     window.addEventListener('resize', this.resize);
+    this.resizeObserver = new ResizeObserver(this.resize);
+    this.resizeObserver.observe(container);
     document.addEventListener('visibilitychange', this.onVisibility);
   }
+
+  private resizeObserver: ResizeObserver;
 
   start(): void {
     if (this.running) return;
@@ -94,6 +98,7 @@ export class CyberScene {
   dispose(): void {
     this.stop();
     window.removeEventListener('resize', this.resize);
+    this.resizeObserver.disconnect();
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.renderer.dispose();
   }
