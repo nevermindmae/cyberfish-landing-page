@@ -98,7 +98,14 @@ export class CyberScene {
 
   /** Loads the hero fish and adds it to the scene. Progress is 0..1 of the download. */
   async loadFish(onProgress?: ProgressCallback): Promise<void> {
-    const fish = await Fish.load(FOCUS, this.opts.reducedMotion, onProgress);
+    const fish = await Fish.load(
+      FOCUS,
+      {
+        reducedMotion: this.opts.reducedMotion,
+        anisotropy: this.renderer.capabilities.getMaxAnisotropy(),
+      },
+      onProgress,
+    );
     this.fish = fish;
     this.scene.add(fish.root);
     // Settle the heading before the first visible frame.

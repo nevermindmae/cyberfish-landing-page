@@ -58,6 +58,12 @@ const _origin = new THREE.Vector3();
 
 export type ProgressCallback = (fraction: number) => void;
 
+export interface FishOptions {
+  reducedMotion: boolean;
+  /** renderer.capabilities.getMaxAnisotropy(); keeps thin traces from twinkling. */
+  anisotropy: number;
+}
+
 interface SharedUniforms {
   uTime: THREE.IUniform<number>;
   uSwim: THREE.IUniform<number>;
@@ -179,6 +185,12 @@ function patchMaterial(
   material.needsUpdate = true;
 }
 
+function setAnisotropy(material: THREE.Material, anisotropy: number): void {
+  for (const value of Object.values(material)) {
+    if (value instanceof THREE.Texture) value.anisotropy = anisotropy;
+  }
+}
+
 function kindFor(name: string): number {
   if (name.startsWith('CF_FinTail')) return KIND.tail;
   if (name.startsWith('CF_FinPectoral')) return KIND.pectoral;
@@ -196,7 +208,8 @@ export class Fish {
   private readonly cursor = new THREE.Vector2();
   private readonly uniforms: SharedUniforms;
 
-  private constructor(model: THREE.Object3D, centre: THREE.Vector3, reducedMotion: boolean) {
+  private constructor(model: THREE.Object3D, centre: THREE.Vector3, opts: FishOptions) {
+    const { reducedMotion } = opts;
     this.centre = centre.clone();
     this.reducedMotion = reducedMotion;
 
@@ -225,10 +238,13 @@ export class Fish {
       const source = Array.isArray(o.material) ? o.material[0] : o.material;
       const mat = source.clone();
       if (mat.transparent) {
-        // Blended fins: draw after the body, never write depth.
-        mat.depthWrite = false;
+        // Blended fins, drawn after the body. They DO write depth (Blender's
+        // "no transparency overlap"): otherwise a fin's own folds and
+        // overlapping fins blend in triangle order and pop as they flutter.
+        mat.depthWrite = true;
         o.renderOrder = 1;
       }
+      setAnisotropy(mat, opts.anisotropy);
       patchMaterial(mat, this.uniforms, kind, side);
       o.material = mat;
     });
@@ -240,13 +256,13 @@ export class Fish {
 
   static load(
     centre: THREE.Vector3,
-    reducedMotion: boolean,
+    opts: FishOptions,
     onProgress?: ProgressCallback,
   ): Promise<Fish> {
     return new Promise((resolve, reject) => {
       new GLTFLoader().load(
         MODEL_URL,
-        (gltf) => resolve(new Fish(gltf.scene, centre, reducedMotion)),
+        (gltf) => resolve(new Fish(gltf.scene, centre, opts)),
         (e) => {
           if (onProgress && e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
         },

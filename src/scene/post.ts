@@ -49,14 +49,20 @@ export class Post {
 
     this.composer.addPass(new RenderPass(scene, camera));
 
-    // Per assets-src/cyberfish/README.md: threshold ~1.0 so only the emissive
-    // circuit traces and eye rings bloom, not the white shell.
+    // Only the emissive circuit traces and eye rings should bloom, not the
+    // white shell. UnrealBloomPass halves the given resolution for its first
+    // mip, so pass the full size: a quarter-res first mip makes thin traces
+    // and the tiny eye rings twinkle as the fish moves sub-pixel.
     this.bloom = new UnrealBloomPass(
-      new THREE.Vector2(Math.max(1, size.x / 2), Math.max(1, size.y / 2)),
-      0.45, // strength
-      0.55, // radius
-      0.95, // threshold
+      new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
+      0.4, // strength
+      0.6, // radius
+      0.9, // threshold
     );
+    // Soft knee instead of the default near-hard cut (0.01): pixels hovering
+    // around the threshold no longer flip in and out of the bloom each frame.
+    const highPass = this.bloom.highPassUniforms as Record<string, THREE.IUniform<number>>;
+    highPass.smoothWidth.value = 0.5;
     this.composer.addPass(this.bloom);
 
     this.composer.addPass(new OutputPass());
@@ -76,7 +82,7 @@ export class Post {
 
   setSize(width: number, height: number): void {
     this.composer.setSize(width, height);
-    this.bloom.setSize(Math.max(1, width / 2), Math.max(1, height / 2));
+    this.bloom.setSize(Math.max(1, width), Math.max(1, height));
   }
 
   render(time: number): void {
