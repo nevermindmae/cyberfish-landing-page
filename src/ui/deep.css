@@ -149,17 +149,17 @@ html[data-surfacing] .callout {
 /* Going down (html[data-descending]) and in the chapters below
    (html[data-safety], html[data-floor]): the deep's copy and callout are
    gone; they return when the visitor comes back up to the deep. */
-html[data-descending] .deep-block,
-html[data-safety] .deep-block,
-html[data-floor] .deep-block {
+html[data-deep][data-descending] .deep-block,
+html[data-deep][data-safety] .deep-block,
+html[data-deep][data-floor] .deep-block {
   opacity: 0;
   transform: none;
   transition: opacity 500ms ease;
 }
 
-html[data-descending] .callout,
-html[data-safety] .callout,
-html[data-floor] .callout {
+html[data-deep][data-descending] .callout,
+html[data-deep][data-safety] .callout,
+html[data-deep][data-floor] .callout {
   opacity: 0;
 }
 
