@@ -108,6 +108,14 @@ export interface DiveOptions {
   onSplash?: () => void;
 }
 
+/** Where the DeKoi unit's board is on screen this frame (CSS px), for the callout. */
+export interface DeviceAnchor {
+  x: number;
+  y: number;
+  /** The lid has finished opening. */
+  open: boolean;
+}
+
 function quadBezier(
   a: THREE.Vector3,
   c: THREE.Vector3,
@@ -185,6 +193,13 @@ export class CyberScene {
   private heroLights: THREE.Light[] = [];
   /** Dev: slow the dive down (1 = real time) to inspect the transition. */
   diveTimeScale = 1;
+  /**
+   * Every frame in the deep: where the unit's board is on screen, or null
+   * while there is nothing to point at (and once more when the deep goes).
+   */
+  onDeviceAnchor: ((anchor: DeviceAnchor | null) => void) | null = null;
+  private readonly anchorWorld = new THREE.Vector3();
+  private anchorShown = false;
 
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
@@ -639,6 +654,7 @@ export class CyberScene {
     this.camera.lookAt(this.lookTarget);
     this.camera.rotateY(-this.parallax.x * DEEP_PARALLAX_TILT);
     this.camera.rotateX(this.parallax.y * DEEP_PARALLAX_TILT * 0.6);
+    this.reportAnchor(deep);
 
     // Leaving: back into the black, then hand over to the sea.
     if (this.surfacing) {
@@ -661,12 +677,35 @@ export class CyberScene {
     });
   }
 
+  /** Project the unit's board into CSS pixels for the callout. */
+  private reportAnchor(deep: Deep): void {
+    const fn = this.onDeviceAnchor;
+    if (!fn) return;
+    const p = this.anchorWorld;
+    if (!deep.anchor(p)) {
+      if (this.anchorShown) fn(null);
+      this.anchorShown = false;
+      return;
+    }
+    this.camera.updateMatrixWorld();
+    p.project(this.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.anchorShown = true;
+    fn({
+      x: rect.left + (p.x + 1) * 0.5 * rect.width,
+      y: rect.top + (1 - p.y) * 0.5 * rect.height,
+      open: deep.lidOpen,
+    });
+  }
+
   /** The frame is black: put the sea back exactly as it was before the dive. */
   private leaveDeep(deep: Deep, s: { resolve: () => void }): void {
     this.scene.remove(deep.root);
     deep.dispose();
     this.deep = null;
     this.surfacing = null;
+    if (this.anchorShown) this.onDeviceAnchor?.(null);
+    this.anchorShown = false;
 
     this.ocean.mesh.visible = true;
     this.sky.mesh.visible = true;

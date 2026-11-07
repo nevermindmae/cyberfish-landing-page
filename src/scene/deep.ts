@@ -83,6 +83,8 @@ const DEVICE_CENTRE_Y = -0.015;
 const LID_CLIP = 'DK_LidOpen';
 /** Seconds after the hand-off before the lid lifts (the fade-in is ~3 s). */
 const LID_OPEN_AT = 3.4;
+/** The part the callout points at: the Pi's heatsink, mid-board. */
+const ANCHOR_MESH = 'DK_Pi_sink';
 
 export class Deep {
   readonly root = new THREE.Group();
@@ -98,6 +100,11 @@ export class Deep {
   private mixer: THREE.AnimationMixer | null = null;
   private lid: THREE.AnimationAction | null = null;
   private lidOpened = false;
+  /** True once the lid clip has run to its end. */
+  lidOpen = false;
+  /** Mesh the callout points at, and the point on it (local space). */
+  private anchorMesh: THREE.Mesh | null = null;
+  private readonly anchorLocal = new THREE.Vector3();
 
   constructor(opts: DeepOptions) {
     const layers = opts.mobile ? RAY_LAYERS.slice(0, 2) : RAY_LAYERS;
@@ -155,6 +162,13 @@ export class Deep {
     model.position.y = DEVICE_CENTRE_Y;
     model.traverse((o) => {
       if (!(o instanceof THREE.Mesh)) return;
+      if (o.name === ANCHOR_MESH) {
+        // Top face, centre.
+        o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox!;
+        bb.getCenter(this.anchorLocal).setY(bb.max.y);
+        this.anchorMesh = o;
+      }
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
         // The deep's fog is tuned for the water, not for a thing 6 m away.
@@ -196,12 +210,27 @@ export class Deep {
       this.mixer.update(0);
       action.paused = true;
       this.lid = action;
+      this.mixer.addEventListener('finished', () => {
+        this.lidOpen = true;
+      });
     }
   }
 
   /** Show the unit (after its programs are compiled). */
   reveal(): void {
     if (this.device?.parent) this.device.parent.visible = true;
+  }
+
+  /**
+   * World position of the callout's anchor on the board. False while the
+   * unit is not loaded or not yet shown.
+   */
+  anchor(out: THREE.Vector3): boolean {
+    const mesh = this.anchorMesh;
+    if (!mesh || !this.device?.parent?.visible) return false;
+    mesh.updateWorldMatrix(true, false);
+    mesh.localToWorld(out.copy(this.anchorLocal));
+    return true;
   }
 
   /**

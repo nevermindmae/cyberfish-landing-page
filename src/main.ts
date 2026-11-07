@@ -4,8 +4,10 @@ import './ui/nav.css';
 import './ui/hero.css';
 import './ui/cta.css';
 import './ui/back.css';
+import './ui/deep.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
+import { Callout } from './ui/callout';
 import { CyberScene } from './scene';
 
 const root = document.getElementById('scene');
@@ -74,6 +76,13 @@ if (import.meta.env.DEV && diveSlow > 1) {
   (window as unknown as { __scene: CyberScene }).__scene = scene;
 }
 loader.setProgress(0.2);
+
+// In the deep, the callout follows the board inside the unit.
+const calloutEl = document.getElementById('callout');
+if (calloutEl) {
+  const callout = new Callout(calloutEl);
+  scene.onDeviceAnchor = (a) => callout.place(a);
+}
 
 try {
   await scene.loadFish((f) => loader.setProgress(0.2 + f * 0.7));
