@@ -4,6 +4,7 @@ import { Post } from './post';
 import { Fish, type ProgressCallback } from './fish';
 import { Sky } from './sky';
 import { Ocean, WAVE_CREST } from './ocean';
+import { Deep } from './deep';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
 /**
@@ -62,6 +63,17 @@ const DIVE_DARK_AFTER = 0.2;
 const DIVE_DARK_LENGTH = 0.8;
 /** Reduced motion: no camera move, just the fade. */
 const DIVE_DURATION_STILL = 1.4;
+
+/**
+ * The deep (after the dive): the frame is black when the hand-off happens;
+ * the new chapter then surfaces out of that black over DEEP_FADE_IN, with
+ * the last of the lens wobble settling. The camera stays where the dive
+ * left it; the parallax is bigger down here so the shaft layers show depth.
+ */
+const DEEP_BG = '#02050c';
+const DEEP_FADE_IN = 3.2;
+const DEEP_PARALLAX_SHIFT = new THREE.Vector2(1.4, 0.8);
+const DEEP_PARALLAX_TILT = 0.05;
 
 const easeInQuad = (t: number): number => t * t;
 const window01 = (t: number, [a, b]: readonly [number, number]): number =>
@@ -151,6 +163,11 @@ export class CyberScene {
   private resizeObserver: ResizeObserver;
   private readonly focus = FOCUS.clone();
   private diving: DiveState | null = null;
+  /** The chapter below the surface, once the dive has handed over to it. */
+  deep: Deep | null = null;
+  /** Seconds since the hand-off, and the camera's rest point down there. */
+  private deepT = 0;
+  private readonly deepBase = new THREE.Vector3();
   /** The fish's blue lights and their rest intensities (dimmed during the dive). */
   private fishLights: Array<{ light: THREE.Light; intensity: number }> = [];
   /** Dev: slow the dive down (1 = real time) to inspect the transition. */
@@ -273,10 +290,11 @@ export class CyberScene {
 
   /**
    * Take the camera down through the water. Resolves once the frame is fully
-   * black (the caller then covers the canvas and may stop the loop).
+   * black; by then the scene has already switched to the deep, which
+   * surfaces out of that black on its own.
    */
   dive({ onSplash }: DiveOptions = {}): Promise<void> {
-    if (this.diving) return Promise.resolve();
+    if (this.diving || this.deep) return Promise.resolve();
     return new Promise((resolve) => {
       const hole = new THREE.Vector3(
         CAMERA_POS.x + DIVE_HOLE.x,
@@ -322,6 +340,7 @@ export class CyberScene {
     window.removeEventListener('pointerleave', this.onPointerLeave);
     this.post.dispose();
     this.ocean.dispose();
+    this.deep?.dispose();
     this.renderer.dispose();
   }
 
@@ -365,6 +384,11 @@ export class CyberScene {
   };
 
   protected update(dt: number): void {
+    if (this.deep) {
+      this.updateDeep(this.deep, dt);
+      return;
+    }
+
     this.ocean.update(this.time);
     this.sky.update(this.time);
 
@@ -501,10 +525,60 @@ export class CyberScene {
     fn?.();
   }
 
+  /** The frame is black: swap the sea for the deep, then let the caller know. */
   private finishDive(d: DiveState): void {
+    this.diving = null;
+    this.enterDeep();
     d.resolve();
-    // Keep the state so update() leaves the camera where it ended.
-    d.resolve = () => {};
+  }
+
+  private enterDeep(): void {
+    this.ocean.mesh.visible = false;
+    this.sky.mesh.visible = false;
+    if (this.fish) this.fish.root.visible = false;
+    this.renderer.setClearColor(DEEP_BG, 1);
+
+    // Rest where the dive left the lens (its own parallax is re-based here).
+    this.deepBase.set(CAMERA_POS.x, this.camera.position.y, CAMERA_POS.z);
+    const deep = new Deep({
+      mobile: this.opts.mobile,
+      pixelRatio: this.renderer.getPixelRatio(),
+    });
+    deep.root.position.copy(this.deepBase);
+    this.scene.add(deep.root);
+    this.deep = deep;
+    this.deepT = 0;
+    this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
+  }
+
+  /** Camera and fade-in for the chapter below the surface. */
+  private updateDeep(deep: Deep, dt: number): void {
+    this.deepT += dt;
+    deep.update(this.time);
+
+    // Slower, wider parallax than above: the shaft layers give it depth.
+    const kp = 1 - Math.exp(-dt * 1.8);
+    this.parallax.lerp(this.pointer, kp);
+    const base = this.deepBase;
+    this.camera.position.set(
+      base.x + this.parallax.x * DEEP_PARALLAX_SHIFT.x,
+      base.y + this.parallax.y * DEEP_PARALLAX_SHIFT.y,
+      base.z,
+    );
+    this.lookTarget.set(base.x, base.y, base.z - 10);
+    this.camera.lookAt(this.lookTarget);
+    this.camera.rotateY(-this.parallax.x * DEEP_PARALLAX_TILT);
+    this.camera.rotateX(this.parallax.y * DEEP_PARALLAX_TILT * 0.6);
+
+    // Surface out of the black; the lens wobble settles with it.
+    const k = THREE.MathUtils.smoothstep(this.deepT / DEEP_FADE_IN, 0, 1);
+    this.post.setDive({
+      time: this.deepT,
+      wobble: 0.4 * (1 - k),
+      flash: 0,
+      deep: 1 - k,
+      dark: 1 - k,
+    });
   }
 
   /** Look straight ahead from the current height, pitched up by CAMERA_PITCH_UP. */

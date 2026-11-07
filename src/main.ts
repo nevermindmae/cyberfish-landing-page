@@ -99,8 +99,8 @@ loader.done.then(({ sound }) => {
 });
 
 // "Deploy The Decoy?": dive under. The HUD sinks away, the camera goes
-// through the water, and once the frame is black a plain black screen takes
-// over (the next chapter of the page goes here).
+// through the water, and out of the black the deep surfaces (the scene
+// handles that itself); html[data-deep] brings the HUD back for it.
 const deploy = document.getElementById('deploy') as HTMLButtonElement | null;
 if (deploy) {
   deploy.addEventListener('pointerenter', () => sfx.play('hover'));
@@ -111,8 +111,6 @@ if (deploy) {
     html.dataset.diving = '';
     deploy.disabled = true;
     await scene.dive({ onSplash: () => void sfx.play('dive') });
-    html.dataset.dived = '';
-    // Let the black screen's fade land before the canvas stops updating.
-    setTimeout(() => scene.stop(), 500);
+    html.dataset.deep = '';
   });
 }

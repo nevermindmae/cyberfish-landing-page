@@ -22,6 +22,13 @@ html[data-entered] .nav {
   opacity: 1;
 }
 
+/* The dive sinks the HUD (cta.css); the nav returns once the deep has
+   surfaced out of the black. */
+html[data-diving][data-deep] .nav {
+  opacity: 1;
+  transition: opacity 1200ms ease 2200ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nav {
     transition: opacity 300ms;
