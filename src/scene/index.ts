@@ -80,7 +80,14 @@ interface DiveState {
   /** When the fish / the lens went under, or -1. */
   fishSplashAt: number;
   lensSplashAt: number;
+  /** Fired once, the moment the fish hits the water. */
+  onSplash: (() => void) | null;
   resolve: () => void;
+}
+
+export interface DiveOptions {
+  /** Called when the fish hits the water (at once under reduced motion). */
+  onSplash?: () => void;
 }
 
 function quadBezier(
@@ -268,7 +275,7 @@ export class CyberScene {
    * Take the camera down through the water. Resolves once the frame is fully
    * black (the caller then covers the canvas and may stop the loop).
    */
-  dive(): Promise<void> {
+  dive({ onSplash }: DiveOptions = {}): Promise<void> {
     if (this.diving) return Promise.resolve();
     return new Promise((resolve) => {
       const hole = new THREE.Vector3(
@@ -290,6 +297,7 @@ export class CyberScene {
         hole,
         fishSplashAt: -1,
         lensSplashAt: -1,
+        onSplash: onSplash ?? null,
         resolve,
       };
     });
@@ -397,6 +405,7 @@ export class CyberScene {
 
     if (this.opts.reducedMotion) {
       // No camera motion: the picture just sinks into the dark.
+      this.fireSplash(d);
       const k = THREE.MathUtils.clamp(t / DIVE_DURATION_STILL, 0, 1);
       this.post.setDive({ time: t, wobble: 0, flash: 0, deep: k, dark: k * k });
       if (t >= DIVE_DURATION_STILL) this.finishDive(d);
@@ -426,6 +435,8 @@ export class CyberScene {
         this.ocean.splash(d.hole.x, d.hole.z, 1);
       }
     }
+    // Also without a fish (model failed to load), so the cue still lands.
+    if (run >= 1) this.fireSplash(d);
 
     // The hole glows blue: hard on impact, then the decoy's light dies away
     // beneath the surface while the rings carry it outward.
@@ -482,6 +493,12 @@ export class CyberScene {
       this.post.setDive({ time: t, wobble: 0, flash: 0, deep: 1, dark: 1 });
       this.finishDive(d);
     }
+  }
+
+  private fireSplash(d: DiveState): void {
+    const fn = d.onSplash;
+    d.onSplash = null;
+    fn?.();
   }
 
   private finishDive(d: DiveState): void {

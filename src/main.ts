@@ -110,8 +110,7 @@ if (deploy) {
     if ('diving' in html.dataset) return;
     html.dataset.diving = '';
     deploy.disabled = true;
-    sfx.play('dive');
-    await scene.dive();
+    await scene.dive({ onSplash: () => void sfx.play('dive') });
     html.dataset.dived = '';
     // Let the black screen's fade land before the canvas stops updating.
     setTimeout(() => scene.stop(), 500);
