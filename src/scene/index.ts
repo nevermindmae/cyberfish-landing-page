@@ -19,9 +19,9 @@ const CAMERA_PITCH_UP = THREE.MathUtils.degToRad(4);
 const FOV_LANDSCAPE = 28;
 const FOV_PORTRAIT = 48;
 /** The fish hovers this far above the camera, so it holds its place in frame. */
-const FISH_ABOVE_CAMERA = 2.3;
+const FISH_ABOVE_CAMERA = 1.2;
 /** Where the fish hovers (y is set per frame from the camera height). */
-export const FOCUS = new THREE.Vector3(0, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -3);
+export const FOCUS = new THREE.Vector3(0, WAVE_CREST + CAMERA_CLEARANCE + FISH_ABOVE_CAMERA, -2);
 
 export interface SceneOptions {
   reducedMotion: boolean;

@@ -12,8 +12,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
  */
 const MODEL_URL = '/models/cyberfish_straight.glb';
 
-/** Brings the ~6.75 unit model to ~5 units. */
-const MODEL_SCALE = 0.75;
+/** Brings the ~6.75 unit model to ~6.1 units. */
+const MODEL_SCALE = 0.9;
 
 // ---------------------------------------------------------------- hovering
 /** Drift around the anchor point (world units) and the periods (s) driving it. */
