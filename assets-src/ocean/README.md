@@ -40,3 +40,19 @@ exec(open("build_ocean.py").read())
 ```
 
 Knobs: `FISH_Z` (hover height), `FISH_SCALE`, `WAVE_SCALE`; frame range 1–240 animates the swell (ocean `time` 0 → 12 s).
+
+## Drop-in values for `src/scene/palette.ts` (sRGB hex, three converts to linear)
+
+| token | hex | from |
+| --- | --- | --- |
+| `skyTop` | `#382973` | zenith (violet) |
+| `skyMid` | `#423886` | upper sky |
+| `skyLow` | `#5552a2` | just above the horizon band |
+| `skyHorizon` | `#848bcb` | horizon band |
+| `skyCloudTint` | `#8b7cce` | cirrus tint, mix ≈ 0.55 × noise |
+| `waterBase` | `#1d2755` | water albedo (roughness 0.06, clearcoat 0.6) |
+| `waterFog` | `#525f9b` | water-only fog, 25 → 220 m, max 0.92 |
+| `fishGlow` | `#95ceff` | the two point lights at the fish (320 W / 150 W equiv.) |
+| `fill` | `#bcc4f9` | big soft overhead fill |
+
+The existing `FOG_DENSITY = 0.02` (exp²) is much denser than the Blender haze; linear `Fog(waterFog, 25, 220)` on the water material matches the render.
