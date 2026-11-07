@@ -144,7 +144,7 @@ html[data-surfacing] .callout {
     left: calc(var(--frame-inset) + 12px);
     top: calc(var(--frame-inset) + 84px);
     transform: none;
-    width: min(50ch, calc(100vw - 2 * var(--frame-inset) - 24px));
+    width: min(640px, calc(100vw - 2 * var(--frame-inset) - 24px));
     gap: 28px;
   }
 }
