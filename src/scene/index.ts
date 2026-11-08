@@ -92,6 +92,8 @@ const DEEP_LOOK = new THREE.Vector3(0, 0, -10);
  */
 export type Chapter = 'deep' | 'safety' | 'market' | 'business' | 'gtm' | 'team' | 'floor';
 const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'business', 'gtm', 'team', 'floor'];
+/** The chapters with the hero fish swimming behind the copy. */
+const LANE_CHAPTERS = new Set<Chapter>(['safety', 'market', 'team']);
 const LEVEL_DROP = 16;
 const GLIDE_TIME = 2.0;
 /** To and from the floor: a quick dip through black, and the floor comes up out of it. */
@@ -206,7 +208,7 @@ export class CyberScene {
   /** The water shared by every chapter below, and the chapters' own content. */
   private water: Water | null = null;
   deep: Deep | null = null;
-  /** The hero fish's lane, in the chapters that have it (safety, team), and which one. */
+  /** The hero fish's lane, in the chapters that have it (LANE_CHAPTERS), and which one. */
   lane: FishLane | null = null;
   private laneChapter: Chapter | null = null;
   floor: Floor | null = null;
@@ -732,20 +734,13 @@ export class CyberScene {
         await this.renderer.compileAsync(deep.root, this.camera, this.scene);
         if (this.deep === deep) deep.reveal();
       });
-    } else if (chapter === 'safety' || chapter === 'team') {
+    } else if (LANE_CHAPTERS.has(chapter)) {
       // Copy over the water, with the hero fish back in the picture: it
-      // swims across far behind the words, lit like the unit.
-      const lane = new FishLane();
-      this.rootFor(chapter, lane.root);
-      this.scene.add(lane.root);
-      this.lane = lane;
-      this.laneChapter = chapter;
-      if (this.fish) {
-        lane.update(1 / 60, this.camera, this.fish, this.keepOutFor(chapter));
-        this.fish.update(this.time, 1 / 60, this.pointer);
-        this.fish.root.visible = true;
-        for (const { light, intensity } of this.fishLights) light.intensity = intensity;
-      }
+      // swims across far behind the words, lit like the unit. There is one
+      // fish: when two of these chapters are adjacent, the glide between
+      // them keeps the fish on the lane it is on, and the new lane is laid
+      // on arrival (see arrive()).
+      if (!this.lane) this.addLane(chapter);
     } else if (chapter === 'floor') {
       const floor = new Floor({
         mobile: this.opts.mobile,
@@ -767,7 +762,22 @@ export class CyberScene {
         });
       }
     }
-    // 'market', 'business' and 'gtm' are copy over the water alone.
+    // 'business' and 'gtm' are copy over the water alone.
+  }
+
+  /** Lay the fish's lane for a chapter and put the fish on it (out of frame, at its start). */
+  private addLane(chapter: Chapter): void {
+    const lane = new FishLane();
+    this.rootFor(chapter, lane.root);
+    this.scene.add(lane.root);
+    this.lane = lane;
+    this.laneChapter = chapter;
+    if (this.fish) {
+      lane.update(1 / 60, this.camera, this.fish, this.keepOutFor(chapter));
+      this.fish.update(this.time, 1 / 60, this.pointer);
+      this.fish.root.visible = true;
+      for (const { light, intensity } of this.fishLights) light.intensity = intensity;
+    }
   }
 
   /** The chapter's copy as a box in NDC, for the fish to stop clear of; null if unknown. */
@@ -791,6 +801,8 @@ export class CyberScene {
   /** The chapter is now the current one: settle the water for it. */
   private arrive(chapter: Chapter): void {
     this.chapter = chapter;
+    // After a glide from another fish chapter (its lane went with leave()).
+    if (LANE_CHAPTERS.has(chapter) && !this.lane) this.addLane(chapter);
     if (this.water) {
       // The floor brings its own light; above it the shafts stop at the unit.
       this.water.root.visible = chapter !== 'floor';
