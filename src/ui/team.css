@@ -1,23 +1,22 @@
 /* The team chapter, one level below the market chapter: one Michroma
-   title and the two of us in two rows, each a large round photo in a
-   glowing white ring beside a name (Michroma, like the title) and a few
-   lines. Magnus first with his photo on the left, Maja second with hers
-   on the right. The title comes up first, then the rows in turn
-   (html[data-team]); it all goes together when the visitor moves on. */
+   title and the two of us beneath it, centred, each a name (Michroma,
+   like the title) over a few short lines. Magnus first, then Maja. The
+   title comes up first, then the two in turn (html[data-team]); it all
+   goes together when the visitor moves on. */
 .team-copy {
   position: fixed;
   z-index: 4;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(1100px, 84vw);
+  width: min(680px, 80vw);
   margin: 0;
+  text-align: center;
   pointer-events: none;
 }
 
 .team-title {
-  margin: 0 0 clamp(32px, 5vh, 56px);
-  text-align: center;
+  margin: 0 0 clamp(36px, 6vh, 64px);
   font: 400 clamp(22px, 2.35vw, 38px) / 1.25 var(--font-display);
   letter-spacing: 0.02em;
   color: var(--white);
@@ -30,52 +29,7 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: clamp(28px, 5vh, 56px);
-}
-
-/* A row: photo and words side by side, the words taking what is left. */
-.team-member {
-  display: flex;
-  align-items: center;
-  gap: clamp(28px, 3.5vw, 56px);
-}
-
-/* Maja's row runs the other way: photo on the right, words on the left. */
-.team-member-flip {
-  flex-direction: row-reverse;
-}
-
-.team-member-flip .team-words {
-  text-align: right;
-}
-
-/* The photo: a circle, with a thin white ring that glows. */
-.team-photo {
-  flex: 0 0 auto;
-  display: block;
-  width: clamp(160px, 19vw, 280px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 2px solid rgba(242, 244, 250, 0.95);
-  box-shadow:
-    0 0 10px rgba(242, 244, 250, 0.45),
-    0 0 28px rgba(242, 244, 250, 0.25),
-    0 0 60px rgba(46, 168, 255, 0.25),
-    inset 0 0 10px rgba(242, 244, 250, 0.3);
-}
-
-.team-photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: 50% 30%;
-}
-
-.team-words {
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: clamp(32px, 5.5vh, 60px);
 }
 
 .team-name {
@@ -87,16 +41,13 @@
 }
 
 .team-bio {
-  margin: 0;
-  max-width: 34em;
+  margin: 0 auto;
+  max-width: 30em;
   font: 400 clamp(16px, 1.45vw, 21px) / 1.6 var(--font-mono);
   color: var(--white);
   opacity: 0.9;
   text-shadow: 0 1px 14px rgba(6, 10, 20, 0.8);
-}
-
-.team-member-flip .team-bio {
-  margin-left: auto;
+  text-wrap: balance;
 }
 
 /* Reveal. */
@@ -142,38 +93,13 @@ html[data-team][data-surfacing] .team-member {
   transition: opacity 500ms ease;
 }
 
-@media (max-aspect-ratio: 1/1) {
-  .team-copy {
-    width: min(1100px, calc(100vw - 2 * var(--frame-inset) - 24px));
-  }
-
-  .team-photo {
-    width: clamp(120px, 24vw, 200px);
-  }
-}
-
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .team-copy {
     width: calc(100vw - 32px);
   }
 
-  .team-member,
-  .team-member-flip {
-    flex-direction: column;
-    gap: 14px;
-    text-align: center;
-  }
-
-  .team-member-flip .team-words {
-    text-align: center;
-  }
-
-  .team-photo {
-    width: 120px;
-  }
-
   .team-bio {
-    font-size: 13px;
+    font-size: 14px;
   }
 }
 
