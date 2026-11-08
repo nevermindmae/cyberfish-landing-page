@@ -7,6 +7,7 @@ import './ui/back.css';
 import './ui/deep.css';
 import './ui/safety.css';
 import './ui/market.css';
+import './ui/team.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { Callout } from './ui/callout';
@@ -142,6 +143,7 @@ const changing = (): boolean =>
 const reflectChapter = (): void => {
   delete html.dataset.safety;
   delete html.dataset.market;
+  delete html.dataset.team;
   delete html.dataset.floor;
   const chapter: Chapter = scene.chapter;
   if (chapter !== 'deep') html.dataset[chapter] = '';
@@ -217,6 +219,7 @@ if (backTop) {
     delete html.dataset.deep;
     delete html.dataset.safety;
     delete html.dataset.market;
+    delete html.dataset.team;
     delete html.dataset.floor;
     delete html.dataset.revisit;
     delete html.dataset.surfacing;

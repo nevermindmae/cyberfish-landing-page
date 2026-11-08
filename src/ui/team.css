@@ -1,0 +1,179 @@
+/* The team chapter, one level below the market chapter: one Michroma
+   title, a dry mono subtitle, and the two of us side by side, each a
+   round photo in a glowing white ring over a name and a few lines. The
+   title and subtitle come up first, then the two of us in turn
+   (html[data-team]); it all goes together when the visitor moves on. */
+.team-copy {
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1040px, 82vw);
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.team-title {
+  margin: 0 0 14px;
+  font: 400 clamp(22px, 2.35vw, 38px) / 1.25 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--white);
+  text-shadow: 0 0 22px rgba(46, 168, 255, 0.25);
+}
+
+.team-sub {
+  margin: 0 0 clamp(36px, 6vh, 64px);
+  font: 400 clamp(13px, 1.15vw, 16px) / 1.5 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-mid);
+}
+
+.team-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(32px, 6vw, 120px);
+  justify-items: center;
+}
+
+.team-member {
+  max-width: 380px;
+}
+
+/* The photo: a circle, with a thin white ring that glows. */
+.team-photo {
+  display: block;
+  width: clamp(140px, 15vw, 220px);
+  aspect-ratio: 1;
+  margin: 0 auto clamp(20px, 2.6vh, 30px);
+  border-radius: 50%;
+  padding: 4px;
+  border: 1.5px solid rgba(242, 244, 250, 0.9);
+  box-shadow:
+    0 0 10px rgba(242, 244, 250, 0.45),
+    0 0 28px rgba(242, 244, 250, 0.25),
+    0 0 60px rgba(46, 168, 255, 0.25),
+    inset 0 0 10px rgba(242, 244, 250, 0.3);
+}
+
+.team-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+.team-name {
+  margin: 0 0 10px;
+  font: 700 clamp(17px, 1.5vw, 22px) / 1.3 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--white);
+}
+
+.team-bio {
+  margin: 0;
+  font: 400 clamp(14px, 1.2vw, 17px) / 1.6 var(--font-mono);
+  color: var(--white);
+  opacity: 0.9;
+  text-shadow: 0 1px 14px rgba(6, 10, 20, 0.8);
+}
+
+/* Reveal. */
+.team-title,
+.team-sub,
+.team-member {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 500ms ease,
+    transform 500ms ease;
+}
+
+html[data-team] .team-title,
+html[data-team] .team-sub,
+html[data-team] .team-member {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 1000ms ease,
+    transform 1000ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-team] .team-title {
+  transition-delay: 400ms;
+}
+
+html[data-team] .team-sub {
+  transition-delay: 700ms;
+}
+
+html[data-team] .team-member:nth-child(1) {
+  transition-delay: 1100ms;
+}
+
+html[data-team] .team-member:nth-child(2) {
+  transition-delay: 1400ms;
+}
+
+/* Leaving: everything sinks together, no stagger. */
+html[data-team][data-descending] .team-title,
+html[data-team][data-descending] .team-sub,
+html[data-team][data-descending] .team-member,
+html[data-team][data-ascending] .team-title,
+html[data-team][data-ascending] .team-sub,
+html[data-team][data-ascending] .team-member,
+html[data-team][data-surfacing] .team-title,
+html[data-team][data-surfacing] .team-sub,
+html[data-team][data-surfacing] .team-member {
+  opacity: 0;
+  transform: none;
+  transition: opacity 500ms ease;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .team-copy {
+    width: min(1040px, calc(100vw - 2 * var(--frame-inset) - 24px));
+  }
+
+  .team-list {
+    gap: 28px;
+  }
+}
+
+@media (max-width: 600px) {
+  .team-copy {
+    width: calc(100vw - 32px);
+  }
+
+  .team-list {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .team-photo {
+    width: 110px;
+    margin-bottom: 12px;
+  }
+
+  .team-bio {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-title,
+  .team-sub,
+  .team-member,
+  html[data-team] .team-title,
+  html[data-team] .team-sub,
+  html[data-team] .team-member {
+    transform: none;
+    transition: opacity 300ms;
+  }
+}
