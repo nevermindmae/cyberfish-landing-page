@@ -5,7 +5,7 @@
 <h1 align="center">DeKoi by CyberFish</h1>
 
 <p align="center">
-  A landing page you scroll down through, from the night sea to the sea floor.<br>
+  The home of the DeKoi mascot, from the night sea to the sea floor.<br>
   Built at Oslo Sprint 2026 by team CyberFish.
 </p>
 
