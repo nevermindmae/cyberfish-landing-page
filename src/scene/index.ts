@@ -28,11 +28,14 @@ const FOV_PORTRAIT = 48;
 /** The fish hovers this far above the camera, so it holds its place in frame. */
 const FISH_ABOVE_CAMERA = 1.2;
 /**
- * During the dive, the fish's pool of light on the water fades out over
- * this part of its run (0..1): gone before its rectangle can show in the
- * water.
+ * During the dive, the fish's rectangular pool light hands over to a soft
+ * round pool in the water over this part of its run (0..1): done before the
+ * rectangle can show. The pool's peak emissive strength and radius (world
+ * units, Gaussian sigma).
  */
 const FISH_POOL_OUT = [0.02, 0.3] as const;
+const FISH_POOL_GLOW = 1.7;
+const FISH_POOL_RADIUS = 3.2;
 /**
  * Where the fish hovers (y is set per frame from the camera height). Offset
  * to screen left in landscape, nose pointing right, leaving the right half
@@ -626,19 +629,22 @@ export class CyberScene {
         this.fish.steer(pos, dir);
         // Its lights would blow out the water as it closes in. The pool is
         // a rectangle of light: as the lens sinks and the fish comes down,
-        // its reflection shows as a hard-edged slab, so it goes out early
-        // in the run, leaving the belly light's round glow to carry the
-        // approach.
-        const poolFade = 1 - THREE.MathUtils.smoothstep(run, FISH_POOL_OUT[0], FISH_POOL_OUT[1]);
+        // its reflection shows as a hard-edged slab. So early in the run it
+        // hands over to a soft round pool drawn in the water itself, which
+        // then dims on the same curve the lights do.
+        const dim = 1 - run * 0.8;
+        const handover = THREE.MathUtils.smoothstep(run, FISH_POOL_OUT[0], FISH_POOL_OUT[1]);
         for (const { light, intensity } of this.fishLights) {
-          const dim = 1 - run * 0.8;
           light.intensity =
-            intensity * dim * (light instanceof THREE.RectAreaLight ? poolFade : 1);
+            intensity * dim * (light instanceof THREE.RectAreaLight ? 1 - handover : 1);
         }
+        this.ocean.pool(pos.x, pos.z, FISH_POOL_GLOW * dim * handover, FISH_POOL_RADIUS);
       }
       if (run >= 1) {
         d.fishSplashAt = t;
         this.fish.root.visible = false;
+        // The splash glow takes over from the pool.
+        this.ocean.pool(0, 0, 0, 1);
         this.ocean.splash(d.hole.x, d.hole.z, 1);
       }
     }
@@ -1045,6 +1051,7 @@ export class CyberScene {
     this.sky.mesh.visible = true;
     this.ocean.churn = 0;
     this.ocean.glow = 0;
+    this.ocean.pool(0, 0, 0, 1);
     this.ocean.material.normalScale.setScalar(0.06);
     if (this.fish) {
       this.fish.steer(null);

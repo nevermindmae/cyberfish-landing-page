@@ -133,6 +133,9 @@ void oceanWave(vec2 xz, out vec3 disp, out vec3 nrm) {
 const GLOW_CHUNK = /* glsl */ `
 uniform float uGlow;
 uniform vec3 uGlowColor;
+// The fish's pool of light on the water during its dive: xy world xz,
+// z strength, w radius (Gaussian sigma).
+uniform vec4 uPool;
 varying vec2 vOcWorld;
 `;
 const GLOW_FRAG = /* glsl */ `
@@ -142,6 +145,10 @@ if (uGlow > 0.0) {
   float core = exp(-sp.z * sp.z / 2.0);
   float rings = sp.x * pow(max(sin(sp.y), 0.0), 6.0);
   totalEmissiveRadiance += uGlowColor * uGlow * (core * 0.35 + rings * 0.6);
+}
+if (uPool.z > 0.0) {
+  vec2 dp = vOcWorld - uPool.xy;
+  totalEmissiveRadiance += uGlowColor * uPool.z * exp(-dot(dp, dp) / (2.0 * uPool.w * uPool.w));
 }
 `;
 
@@ -159,6 +166,7 @@ export class Ocean {
   private readonly uChurn: THREE.IUniform<number> = { value: 0 };
   private readonly uSplash: THREE.IUniform<THREE.Vector4> = { value: new THREE.Vector4() };
   private readonly uGlow: THREE.IUniform<number> = { value: 0 };
+  private readonly uPool: THREE.IUniform<THREE.Vector4> = { value: new THREE.Vector4() };
   private readonly bump: THREE.DataTexture;
   private readonly reducedMotion: boolean;
   private readonly waveA: THREE.Vector4[];
@@ -216,6 +224,7 @@ export class Ocean {
       shader.uniforms.uChurn = this.uChurn;
       shader.uniforms.uSplash = this.uSplash;
       shader.uniforms.uGlow = this.uGlow;
+      shader.uniforms.uPool = this.uPool;
       shader.uniforms.uGlowColor = { value: new THREE.Color(OCEAN.fishGlow) };
       shader.vertexShader = shader.vertexShader
         .replace(
@@ -267,6 +276,15 @@ export class Ocean {
   /** 0..1: blue glow at the splash point and along its rings. */
   set glow(value: number) {
     this.uGlow.value = value;
+  }
+
+  /**
+   * A soft round pool of the fish's light on the water, centred on world
+   * (x, z): emissive, so it has no edges and no highlight whatever the
+   * angle. Strength 0 turns it off.
+   */
+  pool(x: number, z: number, strength: number, radius: number): void {
+    this.uPool.value.set(x, z, strength, radius);
   }
 
   /**
