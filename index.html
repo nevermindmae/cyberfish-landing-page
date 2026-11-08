@@ -56,7 +56,9 @@
         pointer-events: none;
       }
       #mark {
-        width: min(320px, 60vw);
+        /* The glyph spans ~95% of the viewBox: at 264px it sits just inside
+           the 260px enter buttons below. */
+        width: min(264px, 60vw);
         height: auto;
         overflow: visible;
         display: block;
