@@ -8,7 +8,7 @@ import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
 import { Floor } from './floor';
 import { loadLogoPoints } from './logo';
-import { FishLane, type NdcRect } from './lane';
+import { FishLane } from './lane';
 import { Water } from './water';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
@@ -212,15 +212,6 @@ export class CyberScene {
   lane: FishLane | null = null;
   private laneChapter: Chapter | null = null;
   floor: Floor | null = null;
-  /**
-   * The current chapter's copy on screen (CSS pixels), so the fish can stop
-   * clear of it; null when there is none. Set by the UI.
-   */
-  copyBounds: ((chapter: Chapter) => DOMRect | null) | null = null;
-  private readonly keepOut: NdcRect = { x0: 0, y0: 0, x1: 0, y1: 0 };
-  private keepOutKnown: NdcRect | null = null;
-  private keepOutChapter: Chapter | null = null;
-  private keepOutAt = -1;
   /** Seconds since the current chapter's hand-off, and the lens's rest point below. */
   private deepT = 0;
   private readonly deepBase = new THREE.Vector3();
@@ -773,29 +764,11 @@ export class CyberScene {
     this.lane = lane;
     this.laneChapter = chapter;
     if (this.fish) {
-      lane.update(1 / 60, this.camera, this.fish, this.keepOutFor(chapter));
+      lane.update(1 / 60, this.camera, this.fish);
       this.fish.update(this.time, 1 / 60, this.pointer);
       this.fish.root.visible = true;
       for (const { light, intensity } of this.fishLights) light.intensity = intensity;
     }
-  }
-
-  /** The chapter's copy as a box in NDC, for the fish to stop clear of; null if unknown. */
-  private keepOutFor(chapter: Chapter): NdcRect | null {
-    // Measured a few times a second at most: it is a layout read.
-    if (chapter === this.keepOutChapter && this.time - this.keepOutAt < 0.4) return this.keepOutKnown;
-    this.keepOutChapter = chapter;
-    this.keepOutAt = this.time;
-    const rect = this.copyBounds?.(chapter);
-    if (!rect || rect.width === 0) return (this.keepOutKnown = null);
-    const w = this.container.clientWidth || window.innerWidth;
-    const h = this.container.clientHeight || window.innerHeight;
-    const k = this.keepOut;
-    k.x0 = (rect.left / w) * 2 - 1;
-    k.x1 = (rect.right / w) * 2 - 1;
-    k.y1 = 1 - (rect.top / h) * 2;
-    k.y0 = 1 - (rect.bottom / h) * 2;
-    return (this.keepOutKnown = k);
   }
 
   /** The chapter is now the current one: settle the water for it. */
@@ -937,7 +910,7 @@ export class CyberScene {
 
     this.water?.update(this.time, base, descent, this.levelOf('floor'));
     if (this.lane && this.laneChapter && this.fish) {
-      this.lane.update(dt, this.camera, this.fish, this.keepOutFor(this.laneChapter));
+      this.lane.update(dt, this.camera, this.fish);
       this.fish.update(this.time, dt, this.pointer);
     }
     if (deep) {
