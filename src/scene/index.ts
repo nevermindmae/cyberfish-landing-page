@@ -79,6 +79,8 @@ const DEEP_BG = '#02050c';
 const DEEP_FADE_IN = 3.2;
 /** The DeKoi unit shown in the deep; fetched once the dive begins. */
 const DEVICE_URL = '/models/dekoi.glb';
+/** The seabed for the floor chapter (assets-src/seafloor). */
+const SEAFLOOR_URL = '/models/seafloor.glb';
 const DEEP_PARALLAX_SHIFT = new THREE.Vector2(1.4, 0.8);
 const DEEP_PARALLAX_TILT = 0.05;
 /** Where the lens aims in the deep, relative to its rest point. */
@@ -220,6 +222,9 @@ export class CyberScene {
   /** The mark as points, for the floor; loaded on first use and kept. */
   private markCloud: Float32Array | null = null;
   private markLoading: Promise<Float32Array> | null = null;
+  /** The seabed mesh for the floor; loaded on first use and kept. */
+  private seafloor: THREE.Object3D | null = null;
+  private seafloorLoading: Promise<THREE.Object3D | null> | null = null;
   /** True while a mouse has moved over the page (parallax and the floor's stir). */
   private pointerLive = false;
   /** The unit's GLB, loaded once and reused across visits to the deep. */
@@ -726,6 +731,7 @@ export class CyberScene {
         mobile: this.opts.mobile,
         pixelRatio: this.renderer.getPixelRatio(),
         cloud: this.markCloud,
+        terrain: this.seafloor,
       });
       this.rootFor('floor', floor.root);
       this.scene.add(floor.root);
@@ -733,6 +739,11 @@ export class CyberScene {
       if (!this.markCloud) {
         void this.loadMark().then((cloud) => {
           if (this.floor === floor) floor.setCloud(cloud);
+        });
+      }
+      if (!this.seafloor) {
+        void this.loadSeafloor().then((terrain) => {
+          if (terrain && this.floor === floor) floor.setTerrain(terrain);
         });
       }
     }
@@ -778,14 +789,35 @@ export class CyberScene {
     return this.markLoading;
   }
 
+  /** The seabed mesh, fetched once; resolves null (and logs) if it fails, and the dunes plane stays. */
+  private loadSeafloor(): Promise<THREE.Object3D | null> {
+    this.seafloorLoading ??= new Promise((resolve) => {
+      new GLTFLoader().load(
+        SEAFLOOR_URL,
+        (gltf) => {
+          this.seafloor = gltf.scene;
+          resolve(gltf.scene);
+        },
+        undefined,
+        (err) => {
+          console.error('Seafloor model failed to load', err);
+          resolve(null);
+        },
+      );
+    });
+    return this.seafloorLoading;
+  }
+
   /** Swap the sea out for the chapters below it. */
   private goBelow(): void {
     this.ocean.mesh.visible = false;
     this.sky.mesh.visible = false;
     if (this.fish) this.fish.root.visible = false;
     this.renderer.setClearColor(DEEP_BG, 1);
-    // The floor's mark takes a moment to sample; start now, it is a long way down.
+    // The floor's mark takes a moment to sample and its seabed a moment to
+    // fetch; start now, it is a long way down.
     void this.loadMark().catch(() => undefined);
+    void this.loadSeafloor();
     // Rest where the dive left the lens (its own parallax is re-based here).
     this.deepBase.set(CAMERA_POS.x, this.camera.position.y, CAMERA_POS.z);
     // The sky environment is far too bright for metal 6 m under the sea, and

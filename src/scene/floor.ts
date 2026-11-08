@@ -1,15 +1,20 @@
 import * as THREE from 'three';
 import { createMotes, createRays } from './deep';
 import floorVert from './shaders/floor.vert.glsl?raw';
+import terrainVert from './shaders/terrain.vert.glsl?raw';
 import floorFrag from './shaders/floor.frag.glsl?raw';
 import swarmVert from './shaders/swarm.vert.glsl?raw';
 import swarmFrag from './shaders/swarm.frag.glsl?raw';
 
 /**
  * The floor: the last chapter, down on the seabed. Dunes of dim sand under
- * a pool of caustics, one shaft of light from far above, motes, and the
- * CyberFish mark hanging in the water as a cloud of particles that swirl
- * away from the cursor and drift back into shape.
+ * a pool of caustics, rocks framing the view, one shaft of light from far
+ * above, motes, and the CyberFish mark hanging in the water as a cloud of
+ * particles that swirl away from the cursor and drift back into shape.
+ *
+ * The seabed is the Blender mesh from assets-src/seafloor (terrain plus
+ * rocks, modelled in this chapter's space), shaded here. Until it has
+ * loaded, a procedural plane of dunes stands in.
  *
  * Laid out like the deep: `root` sits where the camera rests, the camera
  * looks down -Z (pitched down a little by `lookOffset`).
@@ -20,6 +25,8 @@ export interface FloorOptions {
   pixelRatio: number;
   /** The mark's points (loadLogoPoints), or null to attach them later with setCloud(). */
   cloud: Float32Array | null;
+  /** The seabed mesh (the GLB's scene), or null to attach it later with setTerrain(). */
+  terrain: THREE.Object3D | null;
 }
 
 /** Camera height above the mean sand level, and where the lens aims. */
@@ -33,6 +40,9 @@ const FLOOR_CENTRE_Z = -70;
 
 const SAND = new THREE.Color('#0b1222');
 const SAND_LIT = new THREE.Color('#44587c');
+/** The rocks: a shade greyer and darker than the sand, lit the same way. */
+const ROCK = new THREE.Color('#0a0e18');
+const ROCK_LIT = new THREE.Color('#3d4c66');
 const CAUSTIC = new THREE.Color('#9fd2ff');
 const FOG = new THREE.Color('#02050c');
 const LIGHT_DIR = new THREE.Vector3(0.35, 1, 0.25);
@@ -75,41 +85,26 @@ export class Floor {
 
   private readonly materials: THREE.ShaderMaterial[] = [];
   private readonly geometries: THREE.BufferGeometry[] = [];
-  private readonly floorMaterial: THREE.ShaderMaterial;
+  /** The seabed materials (plane, terrain, rocks): all want the camera each frame. */
+  private readonly seabedMaterials: THREE.ShaderMaterial[] = [];
+  /** The procedural dunes, shown until the mesh arrives. */
+  private readonly plane: THREE.Mesh;
+  private terrain: THREE.Object3D | null = null;
   private swarm: Swarm | null = null;
   private readonly pixelRatio: number;
   private readonly markGroup = new THREE.Group();
 
   constructor(opts: FloorOptions) {
-    // Seabed.
+    // Seabed: the procedural plane first, the mesh over it when it is here.
     const segments = opts.mobile ? FLOOR_SEGMENTS_MOBILE : FLOOR_SEGMENTS;
     const geometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, segments, segments);
     geometry.rotateX(-Math.PI / 2);
     this.geometries.push(geometry);
-    this.floorMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uFloorY: { value: FLOOR_Y },
-        uSand: { value: SAND.clone() },
-        uSandLit: { value: SAND_LIT.clone() },
-        uCaustic: { value: CAUSTIC.clone() },
-        uFog: { value: FOG.clone() },
-        uLightDir: { value: LIGHT_DIR.clone() },
-        uPool: { value: POOL.clone() },
-        uPoolRadius: { value: POOL_RADIUS },
-        uCamera: { value: new THREE.Vector3() },
-        uOrigin: { value: new THREE.Vector3() },
-      },
-      vertexShader: floorVert,
-      fragmentShader: floorFrag,
-      // Fades out with distance (alpha), so no far edge against the water.
-      transparent: true,
-    });
-    this.materials.push(this.floorMaterial);
-    const floor = new THREE.Mesh(geometry, this.floorMaterial);
-    floor.position.set(0, FLOOR_Y, FLOOR_CENTRE_Z);
-    floor.frustumCulled = false;
-    this.root.add(floor);
+    this.plane = new THREE.Mesh(geometry, this.seabedMaterial(floorVert, SAND, SAND_LIT, false));
+    this.plane.position.set(0, FLOOR_Y, FLOOR_CENTRE_Z);
+    this.plane.frustumCulled = false;
+    this.root.add(this.plane);
+    if (opts.terrain) this.setTerrain(opts.terrain);
 
     // Light from above, and the water's drift.
     const rays = createRays(RAY);
@@ -130,6 +125,58 @@ export class Floor {
     if (opts.cloud) this.setCloud(opts.cloud);
   }
 
+  /**
+   * Put the seabed mesh in place of the procedural plane (once; later calls
+   * are ignored). The GLB is modelled in this chapter's space, so it drops
+   * straight in; its meshes are dressed in the floor shader: the terrain
+   * (`SF_Terrain`) shaded smoothly from its normals, everything else (the
+   * rocks) faceted. The mesh is shared with later visits, so its geometry is
+   * left alone; only the materials made here are disposed with the chapter.
+   */
+  setTerrain(terrain: THREE.Object3D): void {
+    if (this.terrain) return;
+    this.terrain = terrain;
+    const sand = this.seabedMaterial(terrainVert, SAND, SAND_LIT, true);
+    const rock = this.seabedMaterial(terrainVert, ROCK, ROCK_LIT, false);
+    terrain.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.material = o.name.startsWith('SF_Terrain') ? sand : rock;
+    });
+    this.root.remove(this.plane);
+    this.root.add(terrain);
+  }
+
+  private seabedMaterial(
+    vertexShader: string,
+    dark: THREE.Color,
+    lit: THREE.Color,
+    smooth: boolean,
+  ): THREE.ShaderMaterial {
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uFloorY: { value: FLOOR_Y },
+        uSand: { value: dark.clone() },
+        uSandLit: { value: lit.clone() },
+        uCaustic: { value: CAUSTIC.clone() },
+        uFog: { value: FOG.clone() },
+        uLightDir: { value: LIGHT_DIR.clone() },
+        uPool: { value: POOL.clone() },
+        uPoolRadius: { value: POOL_RADIUS },
+        uCamera: { value: new THREE.Vector3() },
+        uOrigin: { value: new THREE.Vector3() },
+      },
+      defines: smooth ? { SMOOTH_NORMAL: '' } : {},
+      vertexShader,
+      fragmentShader: floorFrag,
+      // Fades out with distance (alpha), so no far edge against the water.
+      transparent: true,
+    });
+    this.materials.push(material);
+    this.seabedMaterials.push(material);
+    return material;
+  }
+
   /** Hang the mark's points in the water (once; later calls are ignored). */
   setCloud(points: Float32Array): void {
     if (this.swarm) return;
@@ -147,8 +194,10 @@ export class Floor {
    */
   update(time: number, dt: number, camera: THREE.Camera, ray: THREE.Ray | null): void {
     for (const m of this.materials) if (m.uniforms.uTime) m.uniforms.uTime.value = time;
-    this.floorMaterial.uniforms.uCamera.value.copy(camera.position);
-    this.root.getWorldPosition(this.floorMaterial.uniforms.uOrigin.value as THREE.Vector3);
+    for (const m of this.seabedMaterials) {
+      m.uniforms.uCamera.value.copy(camera.position);
+      this.root.getWorldPosition(m.uniforms.uOrigin.value as THREE.Vector3);
+    }
 
     // The mark holds station: a slow drift and the gentlest turn.
     this.markGroup.position.set(
@@ -171,6 +220,8 @@ export class Floor {
   }
 
   dispose(): void {
+    // The seabed mesh is kept for the next visit.
+    if (this.terrain) this.root.remove(this.terrain);
     for (const m of this.materials) m.dispose();
     for (const g of this.geometries) g.dispose();
   }

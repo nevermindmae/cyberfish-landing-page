@@ -61,7 +61,6 @@ void main() {
 #ifdef SMOOTH_NORMAL
   // The mesh's own normal (the dunes shade smoothly).
   vec3 n = normalize(vNormal);
-  if (!gl_FrontFacing) n = -n;
 #else
   // Geometric normal from the world position's screen derivatives
   // (the procedural plane, and the rocks' facets).
@@ -80,14 +79,15 @@ void main() {
   vec2 local = vWorld.xz - uOrigin.xz;
   float dp = length(local - uPool) / uPoolRadius;
   float pool = exp(-dp * dp * 1.4);
-  vec3 col = mix(uSand, uSandLit, light * (0.45 + 0.55 * pale) * (0.3 + 0.7 * pool));
-  float c = caustics(local, uTime) * (0.02 + 0.55 * pool) * (0.4 + 0.6 * ndl);
+  vec3 col = mix(uSand, uSandLit, light * (0.45 + 0.55 * pale) * (0.35 + 0.5 * pool));
+  float c = caustics(local, uTime) * (0.004 + 0.16 * pool) * (0.4 + 0.6 * ndl);
   col += uCaustic * c;
 
   // Fade into the water with distance from the lens: darken, then let the
-  // water behind show through so the far edge never draws a line.
+  // water behind show through so the far edge never draws a line. Long
+  // enough that the far dunes and rocks still show as a horizon.
   float dist = length(vWorld - uCamera);
-  float fog = smoothstep(8.0, 46.0, dist);
+  float fog = smoothstep(12.0, 80.0, dist);
   col = mix(col, uFog, fog * 0.7);
 
   gl_FragColor = vec4(col, 1.0 - fog);
