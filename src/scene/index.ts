@@ -8,7 +8,7 @@ import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
 import { Floor } from './floor';
 import { loadLogoPoints } from './logo';
-import { FishLane } from './lane';
+import { FishLane, FishPerch, type FishRoute } from './lane';
 import { Water } from './water';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
@@ -92,8 +92,16 @@ const DEEP_LOOK = new THREE.Vector3(0, 0, -10);
  */
 export type Chapter = 'deep' | 'safety' | 'market' | 'business' | 'gtm' | 'team' | 'floor';
 const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'business', 'gtm', 'team', 'floor'];
-/** The chapters with the hero fish swimming behind the copy. */
-const LANE_CHAPTERS = new Set<Chapter>(['safety', 'market', 'team']);
+/**
+ * The chapters with the hero fish behind the copy, and how it is there:
+ * swimming across (lane) or holding station in the empty top right (perch).
+ */
+const FISH_ROUTES: Partial<Record<Chapter, () => FishRoute>> = {
+  safety: () => new FishLane(),
+  market: () => new FishLane(),
+  gtm: () => new FishPerch(),
+  team: () => new FishLane(),
+};
 const LEVEL_DROP = 16;
 const GLIDE_TIME = 2.0;
 /** To and from the floor: a quick dip through black, and the floor comes up out of it. */
@@ -208,8 +216,8 @@ export class CyberScene {
   /** The water shared by every chapter below, and the chapters' own content. */
   private water: Water | null = null;
   deep: Deep | null = null;
-  /** The hero fish's lane, in the chapters that have it (LANE_CHAPTERS), and which one. */
-  lane: FishLane | null = null;
+  /** The hero fish's route, in the chapters that have it (FISH_ROUTES), and which one. */
+  lane: FishRoute | null = null;
   private laneChapter: Chapter | null = null;
   floor: Floor | null = null;
   /** Seconds since the current chapter's hand-off, and the lens's rest point below. */
@@ -725,12 +733,12 @@ export class CyberScene {
         await this.renderer.compileAsync(deep.root, this.camera, this.scene);
         if (this.deep === deep) deep.reveal();
       });
-    } else if (LANE_CHAPTERS.has(chapter)) {
-      // Copy over the water, with the hero fish back in the picture: it
-      // swims across far behind the words, lit like the unit. There is one
-      // fish: when two of these chapters are adjacent, the glide between
-      // them keeps the fish on the lane it is on, and the new lane is laid
-      // on arrival (see arrive()).
+    } else if (FISH_ROUTES[chapter]) {
+      // Copy over the water, with the hero fish back in the picture far
+      // behind the words, lit like the unit. There is one fish: when two of
+      // these chapters are adjacent, the glide between them keeps the fish
+      // on the route it is on, and the new one is laid on arrival (see
+      // arrive()).
       if (!this.lane) this.addLane(chapter);
     } else if (chapter === 'floor') {
       const floor = new Floor({
@@ -753,12 +761,14 @@ export class CyberScene {
         });
       }
     }
-    // 'business' and 'gtm' are copy over the water alone.
+    // 'business' is copy over the water alone.
   }
 
-  /** Lay the fish's lane for a chapter and put the fish on it (out of frame, at its start). */
+  /** Lay the fish's route for a chapter and put the fish on it, at its start. */
   private addLane(chapter: Chapter): void {
-    const lane = new FishLane();
+    const make = FISH_ROUTES[chapter];
+    if (!make) return;
+    const lane = make();
     this.rootFor(chapter, lane.root);
     this.scene.add(lane.root);
     this.lane = lane;
@@ -774,8 +784,8 @@ export class CyberScene {
   /** The chapter is now the current one: settle the water for it. */
   private arrive(chapter: Chapter): void {
     this.chapter = chapter;
-    // After a glide from another fish chapter (its lane went with leave()).
-    if (LANE_CHAPTERS.has(chapter) && !this.lane) this.addLane(chapter);
+    // After a glide from another fish chapter (its route went with leave()).
+    if (FISH_ROUTES[chapter] && !this.lane) this.addLane(chapter);
     if (this.water) {
       // The floor brings its own light; above it the shafts stop at the unit.
       this.water.root.visible = chapter !== 'floor';
@@ -789,13 +799,15 @@ export class CyberScene {
     if (chapter === 'floor' && this.floor) this.removeFloor(this.floor);
   }
 
-  private removeLane(lane: FishLane): void {
+  private removeLane(lane: FishRoute): void {
     this.scene.remove(lane.root);
     lane.dispose();
     this.lane = null;
     this.laneChapter = null;
     if (this.fish) {
+      // Back to how it hovers above the surface (surfacing re-anchors it).
       this.fish.steer(null);
+      this.fish.facing.copy(Fish.BASE_DIR);
       this.fish.swim = 1;
       this.fish.root.visible = false;
     }

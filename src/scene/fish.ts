@@ -231,6 +231,9 @@ export class Fish {
   /** Add this to the scene. Position and orientation are driven by update(). */
   readonly root = new THREE.Group();
   readonly centre: THREE.Vector3;
+  /** Which way the hover faces (nose direction, world); BASE_DIR unless a chapter turns it. */
+  readonly facing = BASE_DIR.clone();
+  static readonly BASE_DIR: Readonly<THREE.Vector3> = BASE_DIR;
   private readonly reducedMotion: boolean;
   private readonly cursor = new THREE.Vector2();
   private readonly uniforms: SharedUniforms;
@@ -336,7 +339,14 @@ export class Fish {
       this.face(_dir.copy(this.override.dir).normalize(), 0);
       return;
     }
-    if (this.reducedMotion || dt <= 0) return;
+    if (this.reducedMotion) {
+      // Still: at its anchor, facing its way.
+      this.root.position.copy(this.centre);
+      this.uniforms.uLook.value.set(0, 0);
+      this.face(_dir.copy(this.facing), 0);
+      return;
+    }
+    if (dt <= 0) return;
 
     this.cursor.lerp(pointer, 1 - Math.exp(-dt / CURSOR_TAU));
 
@@ -363,7 +373,7 @@ export class Fish {
       -this.cursor.x * CURSOR_BEND.x,
       this.cursor.y * CURSOR_BEND.y,
     );
-    _dir.copy(BASE_DIR).applyAxisAngle(_up, yaw);
+    _dir.copy(this.facing).applyAxisAngle(_up, yaw);
     _dir.y += pitch;
     this.face(_dir.normalize(), roll);
   }

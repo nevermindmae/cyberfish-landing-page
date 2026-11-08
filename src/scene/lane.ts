@@ -1,12 +1,82 @@
 import * as THREE from 'three';
-import type { Fish } from './fish';
+import { Fish } from './fish';
 
 /**
- * The hero fish's lane through an open-water chapter (safety, market,
- * team): copy over the water, with the fish swimming across far behind
- * it. The fish itself belongs to the scene (it is the one from above the
- * surface); this is its route and its light.
+ * The hero fish in the open-water chapters: copy over the water, with the
+ * fish far behind it. The fish itself belongs to the scene (it is the one
+ * from above the surface); these are its routes and its light. FishLane
+ * has it swim across behind the copy; FishPerch has it hold station in an
+ * empty corner, the way it does above the surface.
  */
+
+/** A fish's route through a chapter: the scene drives whichever it has. */
+export interface FishRoute {
+  readonly root: THREE.Group;
+  update(dt: number, camera: THREE.PerspectiveCamera, fish: Fish): void;
+  dispose(): void;
+}
+
+/**
+ * The same cool key and blue rim the unit has in the deep, aimed at where
+ * the fish is; the fish's own neon rides with it.
+ */
+function fishLights(at: THREE.Vector3): THREE.Object3D[] {
+  const key = new THREE.DirectionalLight('#dbe8ff', 1.2);
+  key.position.set(3, 8, 5).add(at);
+  key.target.position.copy(at);
+  const rim = new THREE.DirectionalLight('#2ea8ff', 2.0);
+  rim.position.set(-4, 2, -8).add(at);
+  rim.target.position.copy(at);
+  const fill = new THREE.HemisphereLight('#3b5a9a', '#02050c', 0.5);
+  return [key, key.target, rim, rim.target, fill];
+}
+
+function disposeLights(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    if (o instanceof THREE.Light) o.dispose();
+  });
+}
+
+// ----------------------------------------------------------------- perch
+/**
+ * Where the fish holds station: how far behind the lens (sets its size in
+ * frame) and where in the frame (NDC, x right, y up), the top right.
+ */
+const PERCH_DEPTH = 30;
+const PERCH_AT = new THREE.Vector2(0.5, 0.56);
+/** Nose to screen left, turned a little toward the viewer: into the slide. */
+const PERCH_FACING = new THREE.Vector3(-1, 0, 0.42).normalize();
+const PERCH_SWIM = 0.7;
+
+export class FishPerch implements FishRoute {
+  readonly root = new THREE.Group();
+  private readonly spot = new THREE.Vector3();
+
+  constructor() {
+    this.root.add(...fishLights(new THREE.Vector3(0, 0, -PERCH_DEPTH)));
+  }
+
+  /** Hold the fish in the corner on its own hover (drift, bob, sway, cursor). */
+  update(_dt: number, camera: THREE.PerspectiveCamera, fish: Fish): void {
+    // The spot on the frame, at the perch's depth, straight ahead of the lens's rest point.
+    const halfHeight = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * PERCH_DEPTH;
+    this.spot.set(
+      halfHeight * camera.aspect * PERCH_AT.x,
+      halfHeight * PERCH_AT.y,
+      -PERCH_DEPTH,
+    );
+    fish.centre.copy(this.spot).add(this.root.position);
+    fish.facing.copy(PERCH_FACING);
+    fish.swim = PERCH_SWIM;
+    fish.steer(null);
+  }
+
+  dispose(): void {
+    disposeLights(this.root);
+  }
+}
+
+// ------------------------------------------------------------------ lane
 
 /** How far behind the lens's rest point the fish's lane runs (small in frame). */
 const LANE_DEPTH = 38;
@@ -28,7 +98,7 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _target = new THREE.Vector3();
 
-export class FishLane {
+export class FishLane implements FishRoute {
   readonly root = new THREE.Group();
 
   /** Which way this crossing goes (+1 screen right, -1 screen left). */
@@ -44,17 +114,7 @@ export class FishLane {
   private started = false;
 
   constructor() {
-    // The same cool key and blue rim the unit has in the deep, aimed down
-    // the lane; the fish's own neon rides with it.
-    const lane = new THREE.Vector3(0, LANE_Y, -LANE_DEPTH);
-    const key = new THREE.DirectionalLight('#dbe8ff', 1.2);
-    key.position.set(3, 8, 5).add(lane);
-    key.target.position.copy(lane);
-    const rim = new THREE.DirectionalLight('#2ea8ff', 2.0);
-    rim.position.set(-4, 2, -8).add(lane);
-    rim.target.position.copy(lane);
-    const fill = new THREE.HemisphereLight('#3b5a9a', '#02050c', 0.5);
-    this.root.add(key, key.target, rim, rim.target, fill);
+    this.root.add(...fishLights(new THREE.Vector3(0, LANE_Y, -LANE_DEPTH)));
     this.plan();
   }
 
@@ -126,8 +186,6 @@ export class FishLane {
   }
 
   dispose(): void {
-    this.root.traverse((o) => {
-      if (o instanceof THREE.Light) o.dispose();
-    });
+    disposeLights(this.root);
   }
 }
