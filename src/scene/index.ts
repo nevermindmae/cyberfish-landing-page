@@ -93,7 +93,10 @@ const DEEP_LOOK = new THREE.Vector3(0, 0, -10);
 export type Chapter = 'deep' | 'safety' | 'market' | 'team' | 'floor';
 const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'team', 'floor'];
 const LEVEL_DROP = 16;
-const GLIDE_TIME = 3.2;
+const GLIDE_TIME = 2.0;
+/** To and from the floor: a quick dip through black, and the floor comes up out of it. */
+const CHAPTER_FADE_OUT = 0.7;
+const CHAPTER_FADE_IN = 1.6;
 /** Particles in the floor's mark, and how wide it hangs (world units). */
 const MARK_POINTS = 21000;
 const MARK_POINTS_MOBILE = 8000;
@@ -215,8 +218,9 @@ export class CyberScene {
     t: number;
     resolve: () => void;
   } | null = null;
-  /** A chapter surfacing out of black (>= 0 while running). */
+  /** A chapter surfacing out of black (>= 0 while running), and how long it takes. */
   private fadeT = -1;
+  private fadeIn = DEEP_FADE_IN;
   /** The sea's fade back in after surfacing. */
   private risingT = -1;
   /** The mark as points, for the floor; loaded on first use and kept. */
@@ -686,6 +690,7 @@ export class CyberScene {
     this.enter('deep');
     this.arrive('deep');
     this.fadeT = 0;
+    this.fadeIn = DEEP_FADE_IN;
     this.post.setDive({ time: 0, wobble: 0, flash: 0, deep: 1, dark: 1 });
     d.resolve();
   }
@@ -922,7 +927,8 @@ export class CyberScene {
         return;
       }
       // Into the black, then hand over.
-      const k = THREE.MathUtils.smoothstep(tr.t / SURFACE_FADE_OUT, 0, 1);
+      const out = tr.kind === 'surface' ? SURFACE_FADE_OUT : CHAPTER_FADE_OUT;
+      const k = THREE.MathUtils.smoothstep(tr.t / out, 0, 1);
       const wobble = tr.kind === 'surface' ? 0.3 * k : 0;
       this.post.setDive({ time: this.deepT, wobble, flash: 0, deep: k * 0.5, dark: k });
       if (k < 1) return;
@@ -934,6 +940,7 @@ export class CyberScene {
         this.enter(tr.target);
         this.arrive(tr.target);
         this.fadeT = 0;
+        this.fadeIn = CHAPTER_FADE_IN;
       }
       tr.resolve();
       return;
@@ -943,7 +950,7 @@ export class CyberScene {
     // dive's last ripples) settles with it in the deep.
     if (this.fadeT >= 0) {
       this.fadeT += dt;
-      const k = THREE.MathUtils.smoothstep(this.fadeT / DEEP_FADE_IN, 0, 1);
+      const k = THREE.MathUtils.smoothstep(this.fadeT / this.fadeIn, 0, 1);
       this.post.setDive({
         time: this.fadeT,
         wobble: this.chapter === 'deep' ? 0.4 * (1 - k) : 0,

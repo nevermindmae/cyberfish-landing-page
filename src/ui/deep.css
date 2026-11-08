@@ -213,7 +213,7 @@ html[data-deep] .descend {
 html[data-deep][data-safety] .descend,
 html[data-deep][data-market] .descend,
 html[data-deep][data-team] .descend {
-  transition-delay: 1200ms, 1200ms, 0ms;
+  transition-delay: 700ms, 700ms, 0ms;
 }
 
 /* And back in the deep from below it comes up with the copy. */
