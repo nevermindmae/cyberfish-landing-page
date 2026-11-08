@@ -57,11 +57,11 @@ const MARK_COLOR = new THREE.Color('#a9d6ff');
  */
 const SPRING = 5;
 const DAMPING = 2.4;
-const STIR_RADIUS = 1.3;
-const STIR_FORCE = 16;
+const STIR_RADIUS = 0.7;
+const STIR_FORCE = 12;
 const SWIRL = 0.7;
 /** Cap on how far any particle can be flung from its rest point. */
-const STIR_REACH = 2.4;
+const STIR_REACH = 1.6;
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -203,8 +203,8 @@ class Swarm {
       // Sizes: mostly fine dust, a long tail of larger grains, and a few
       // big soft ones, so the mark reads as uneven, hand-strewn.
       const r = Math.random();
-      let size = 0.3 + Math.pow(r, 2.6) * 1.5;
-      if (Math.random() < 0.035) size += 1.0 + Math.random() * 1.2;
+      let size = 0.55 + Math.pow(r, 2.2) * 2.2;
+      if (Math.random() < 0.035) size += 1.4 + Math.random() * 1.8;
       seeds[i * 3 + 1] = size;
       seeds[i * 3 + 2] = Math.random();
     }
