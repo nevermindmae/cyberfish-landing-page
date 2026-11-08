@@ -1,7 +1,8 @@
 /* The team chapter, one level below the market chapter: one Michroma
-   title, a dry mono subtitle, and the two of us side by side, each a
-   round photo in a glowing white ring over a name and a few lines. The
-   title and subtitle come up first, then the two of us in turn
+   title and the two of us in two rows, each a large round photo in a
+   glowing white ring beside a name (Michroma, like the title) and a few
+   lines. Magnus first with his photo on the left, Maja second with hers
+   on the right. The title comes up first, then the rows in turn
    (html[data-team]); it all goes together when the visitor moves on. */
 .team-copy {
   position: fixed;
@@ -9,47 +10,51 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(1200px, 86vw);
+  width: min(1100px, 84vw);
   margin: 0;
-  text-align: center;
   pointer-events: none;
 }
 
 .team-title {
-  margin: 0 0 14px;
+  margin: 0 0 clamp(32px, 5vh, 56px);
+  text-align: center;
   font: 400 clamp(22px, 2.35vw, 38px) / 1.25 var(--font-display);
   letter-spacing: 0.02em;
   color: var(--white);
   text-shadow: 0 0 22px rgba(46, 168, 255, 0.25);
 }
 
-.team-sub {
-  margin: 0 0 clamp(36px, 6vh, 64px);
-  font: 400 clamp(15px, 1.35vw, 19px) / 1.5 var(--font-mono);
-  letter-spacing: 0.04em;
-  color: var(--text-mid);
-}
-
 .team-list {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(32px, 6vw, 120px);
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 5vh, 56px);
 }
 
+/* A row: photo and words side by side, the words taking what is left. */
 .team-member {
-  max-width: 460px;
+  display: flex;
+  align-items: center;
+  gap: clamp(28px, 3.5vw, 56px);
+}
+
+/* Maja's row runs the other way: photo on the right, words on the left. */
+.team-member-flip {
+  flex-direction: row-reverse;
+}
+
+.team-member-flip .team-words {
+  text-align: right;
 }
 
 /* The photo: a circle, with a thin white ring that glows. */
 .team-photo {
+  flex: 0 0 auto;
   display: block;
-  width: clamp(140px, 15vw, 220px);
+  width: clamp(160px, 19vw, 280px);
   aspect-ratio: 1;
-  margin: 0 auto clamp(20px, 2.6vh, 30px);
   border-radius: 50%;
   border: 2px solid rgba(242, 244, 250, 0.95);
   box-shadow:
@@ -68,24 +73,34 @@
   object-position: 50% 30%;
 }
 
+.team-words {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .team-name {
-  margin: 0 0 12px;
-  font: 700 clamp(20px, 1.8vw, 26px) / 1.3 var(--font-mono);
-  letter-spacing: 0.06em;
+  margin: 0 0 14px;
+  font: 400 clamp(20px, 2vw, 30px) / 1.3 var(--font-display);
+  letter-spacing: 0.02em;
   color: var(--white);
+  text-shadow: 0 0 18px rgba(46, 168, 255, 0.25);
 }
 
 .team-bio {
   margin: 0;
+  max-width: 34em;
   font: 400 clamp(16px, 1.45vw, 21px) / 1.6 var(--font-mono);
   color: var(--white);
   opacity: 0.9;
   text-shadow: 0 1px 14px rgba(6, 10, 20, 0.8);
 }
 
+.team-member-flip .team-bio {
+  margin-left: auto;
+}
+
 /* Reveal. */
 .team-title,
-.team-sub,
 .team-member {
   opacity: 0;
   transform: translateY(14px);
@@ -95,7 +110,6 @@
 }
 
 html[data-team] .team-title,
-html[data-team] .team-sub,
 html[data-team] .team-member {
   opacity: 1;
   transform: none;
@@ -108,27 +122,20 @@ html[data-team] .team-title {
   transition-delay: 400ms;
 }
 
-html[data-team] .team-sub {
-  transition-delay: 700ms;
-}
-
 html[data-team] .team-member:nth-child(1) {
-  transition-delay: 1100ms;
+  transition-delay: 800ms;
 }
 
 html[data-team] .team-member:nth-child(2) {
-  transition-delay: 1400ms;
+  transition-delay: 1150ms;
 }
 
 /* Leaving: everything sinks together, no stagger. */
 html[data-team][data-descending] .team-title,
-html[data-team][data-descending] .team-sub,
 html[data-team][data-descending] .team-member,
 html[data-team][data-ascending] .team-title,
-html[data-team][data-ascending] .team-sub,
 html[data-team][data-ascending] .team-member,
 html[data-team][data-surfacing] .team-title,
-html[data-team][data-surfacing] .team-sub,
 html[data-team][data-surfacing] .team-member {
   opacity: 0;
   transform: none;
@@ -137,11 +144,11 @@ html[data-team][data-surfacing] .team-member {
 
 @media (max-aspect-ratio: 1/1) {
   .team-copy {
-    width: min(1040px, calc(100vw - 2 * var(--frame-inset) - 24px));
+    width: min(1100px, calc(100vw - 2 * var(--frame-inset) - 24px));
   }
 
-  .team-list {
-    gap: 28px;
+  .team-photo {
+    width: clamp(120px, 24vw, 200px);
   }
 }
 
@@ -150,14 +157,19 @@ html[data-team][data-surfacing] .team-member {
     width: calc(100vw - 32px);
   }
 
-  .team-list {
-    grid-template-columns: 1fr;
-    gap: 24px;
+  .team-member,
+  .team-member-flip {
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .team-member-flip .team-words {
+    text-align: center;
   }
 
   .team-photo {
-    width: 110px;
-    margin-bottom: 12px;
+    width: 120px;
   }
 
   .team-bio {
@@ -167,10 +179,8 @@ html[data-team][data-surfacing] .team-member {
 
 @media (prefers-reduced-motion: reduce) {
   .team-title,
-  .team-sub,
   .team-member,
   html[data-team] .team-title,
-  html[data-team] .team-sub,
   html[data-team] .team-member {
     transform: none;
     transition: opacity 300ms;
