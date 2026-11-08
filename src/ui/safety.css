@@ -140,7 +140,8 @@ html[data-safety][data-surfacing] .safety-item {
     color 200ms ease;
 }
 
-html[data-safety] .rewind {
+html[data-safety] .rewind,
+html[data-market] .rewind {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0);
@@ -152,7 +153,10 @@ html[data-safety] .rewind {
 
 html[data-safety][data-descending] .rewind,
 html[data-safety][data-ascending] .rewind,
-html[data-safety][data-surfacing] .rewind {
+html[data-safety][data-surfacing] .rewind,
+html[data-market][data-descending] .rewind,
+html[data-market][data-ascending] .rewind,
+html[data-market][data-surfacing] .rewind {
   opacity: 0;
   pointer-events: none;
   transition: opacity 500ms ease;
@@ -230,7 +234,8 @@ html[data-safety][data-surfacing] .rewind {
   }
 
   .rewind,
-  html[data-safety] .rewind {
+  html[data-safety] .rewind,
+  html[data-market] .rewind {
     transform: translate(-50%, 0);
     transition: opacity 300ms;
   }

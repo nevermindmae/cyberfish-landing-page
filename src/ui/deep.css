@@ -151,6 +151,7 @@ html[data-surfacing] .callout {
    gone; they return when the visitor comes back up to the deep. */
 html[data-deep][data-descending] .deep-block,
 html[data-deep][data-safety] .deep-block,
+html[data-deep][data-market] .deep-block,
 html[data-deep][data-floor] .deep-block {
   opacity: 0;
   transform: none;
@@ -159,6 +160,7 @@ html[data-deep][data-floor] .deep-block {
 
 html[data-deep][data-descending] .callout,
 html[data-deep][data-safety] .callout,
+html[data-deep][data-market] .callout,
 html[data-deep][data-floor] .callout {
   opacity: 0;
 }
@@ -204,8 +206,10 @@ html[data-deep] .descend {
     color 200ms ease;
 }
 
-/* In the safety chapter it is back sooner: the picture is already there. */
-html[data-deep][data-safety] .descend {
+/* In the chapters reached by a glide it is back sooner: the picture is
+   already there. */
+html[data-deep][data-safety] .descend,
+html[data-deep][data-market] .descend {
   transition-delay: 1200ms, 1200ms, 0ms;
 }
 
