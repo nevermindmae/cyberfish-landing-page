@@ -1,0 +1,218 @@
+{
+  "note": "all colours are LINEAR rgb (0-1); convert to sRGB for CSS. Palette: blues/purples only.",
+  "sky": {
+    "map_view_dir_z": [
+      -0.009999999776482582,
+      0.30000001192092896
+    ],
+    "ramp": [
+      {
+        "pos": 0.0,
+        "rgb": [
+          0.23,
+          0.26,
+          0.6
+        ]
+      },
+      {
+        "pos": 0.06,
+        "rgb": [
+          0.09,
+          0.085,
+          0.36
+        ]
+      },
+      {
+        "pos": 0.4,
+        "rgb": [
+          0.055,
+          0.04,
+          0.24
+        ]
+      },
+      {
+        "pos": 1.0,
+        "rgb": [
+          0.04,
+          0.022,
+          0.17
+        ]
+      }
+    ],
+    "clouds": {
+      "strength": 0.55,
+      "noise_scale": 2.2,
+      "detail": 6,
+      "stretch_z": 3.2,
+      "tint_rgb": [
+        0.26,
+        0.2,
+        0.62
+      ],
+      "threshold": [
+        0.38,
+        0.72
+      ],
+      "fade_toward_zenith": "1.0 at horizon -> 0.15 at z=0.55"
+    }
+  },
+  "water": {
+    "baseColor": [
+      0.012,
+      0.02,
+      0.09
+    ],
+    "roughness": 0.05999999865889549,
+    "ior": 1.3300000429153442,
+    "clearcoat": 0.6000000238418579,
+    "clearcoatRoughness": 0.029999999329447746,
+    "fog": {
+      "color": [
+        0.085,
+        0.115,
+        0.33
+      ],
+      "near": 25.0,
+      "far": 220.0,
+      "max": 0.9200000166893005
+    }
+  },
+  "waves": {
+    "tile_m": 160,
+    "wave_scale": 3.0,
+    "choppiness": 1.399999976158142,
+    "wind_velocity": 32.0,
+    "alignment": 0.699999988079071,
+    "direction_deg": 35.0,
+    "time_per_240_frames_s": 12.0
+  },
+  "fish": {
+    "position": [
+      0.0,
+      0.0,
+      1.2999999523162842
+    ],
+    "rotation_deg": [
+      90,
+      0,
+      180
+    ],
+    "scale": 0.699999988079071,
+    "shell_emissive_strength": 18.0,
+    "lights": [
+      {
+        "name": "OC_FishKey",
+        "type": "AREA",
+        "pos": [
+          -4.0,
+          -12.0,
+          6.0
+        ],
+        "watts": 260.0,
+        "rgb": [
+          0.8500000238418579,
+          0.8999999761581421,
+          1.0
+        ]
+      },
+      {
+        "name": "OC_GlowLight",
+        "type": "POINT",
+        "pos": [
+          0.0,
+          -1.6,
+          3.3
+        ],
+        "watts": 320.0,
+        "rgb": [
+          0.30000001192092896,
+          0.6200000047683716,
+          1.0
+        ]
+      },
+      {
+        "name": "OC_GlowLow",
+        "type": "POINT",
+        "pos": [
+          0.0,
+          -0.6,
+          0.75
+        ],
+        "watts": 150.0,
+        "rgb": [
+          0.30000001192092896,
+          0.6200000047683716,
+          1.0
+        ]
+      },
+      {
+        "name": "OC_Horizon",
+        "type": "AREA",
+        "pos": [
+          0.0,
+          140.0,
+          22.0
+        ],
+        "watts": 3500.0,
+        "rgb": [
+          0.550000011920929,
+          0.6200000047683716,
+          1.0
+        ]
+      },
+      {
+        "name": "OC_Sky",
+        "type": "AREA",
+        "pos": [
+          0.0,
+          0.0,
+          120.0
+        ],
+        "watts": 30000.0,
+        "rgb": [
+          0.5,
+          0.550000011920929,
+          0.949999988079071
+        ]
+      }
+    ],
+    "fins": {
+      "ribbing": "bony rays = Solidify thickness 0.026 via 'Rays' vertex group, membrane 28%; 3 membrane rows per ray; alpha 0.62 membrane / 1.0 rays"
+    }
+  },
+  "camera": {
+    "position": [
+      0.0,
+      -13.0,
+      3.2
+    ],
+    "pitch_up_deg": 4.0,
+    "focal_mm": 35.0,
+    "sensor_mm": 36,
+    "vertical_fov_deg": 32.3,
+    "fstop": 2.0
+  },
+  "bloom": {
+    "threshold": 0.9,
+    "strength": 0.45,
+    "size": 8
+  },
+  "grain": {
+    "strength": 0.16,
+    "blend": "overlay",
+    "sigma": 0.11,
+    "note": "stills only; add animated grain in the three.js post pass"
+  },
+  "srgb_hex_for_palette_ts": {
+    "note": "sRGB hex equivalents of the linear values above, ready for new THREE.Color('#\u2026') in src/scene/palette.ts",
+    "skyHorizon": "#848bcb",
+    "skyLow": "#5552a2",
+    "skyMid": "#423886",
+    "skyTop": "#382973",
+    "skyCloudTint": "#8b7cce",
+    "waterBase": "#1d2755",
+    "waterFog": "#525f9b",
+    "fishGlowLight": "#95ceff",
+    "fillLight": "#bcc4f9"
+  }
+}

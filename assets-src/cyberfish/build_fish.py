@@ -37,11 +37,11 @@ def link(obj):
 
 # ------------------------------------------------------------------ body def
 Y_NOSE = 6.2; L = 4.0
-H  = [(0, 0.0), (0.012, 0.11), (0.04, 0.22), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
+H  = [(0, 0.0), (0.007, 0.09), (0.04, 0.23), (0.08, 0.34), (0.15, 0.53), (0.3, 0.72),
       (0.45, 0.70), (0.6, 0.58), (0.75, 0.42), (0.9, 0.27), (1.0, 0.21)]
-Wd = [(0, 0.0), (0.012, 0.20), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
+Wd = [(0, 0.0), (0.007, 0.15), (0.04, 0.31), (0.08, 0.38), (0.15, 0.44), (0.3, 0.50),
       (0.45, 0.48), (0.6, 0.38), (0.75, 0.26), (0.9, 0.15), (1.0, 0.09)]
-ZC = [(0, -0.20), (0.04, -0.14), (0.08, -0.09), (0.15, -0.03), (0.4, 0.0), (1.0, 0.06)]
+ZC = [(0, -0.27), (0.04, -0.19), (0.08, -0.11), (0.15, -0.04), (0.4, 0.0), (1.0, 0.06)]
 
 def surf(t, ang):
     """Straight body surface. ang: 0 = belly, +pi = back (via +x side)."""
@@ -50,7 +50,12 @@ def surf(t, ang):
     k = 0.5 * (1 - c)                    # 0 belly .. 1 back
     wx = w * (1.0 - 0.28 * k * k)        # back narrower than belly
     hz = h * (0.92 if c > 0 else 1.0)
-    return Vector((wx * s, Y_NOSE - L * t, zc - hz * c))
+    # robotic muzzle: the cross-section blends from a superellipse (boxy, n=3.6) at the
+    # nose to a plain ellipse (n=2) by t = 0.24, so the head reads as a machined housing
+    f = min(max(t / 0.24, 0.0), 1.0); f = f * f * (3 - 2 * f)
+    n = 2.9 * (1 - f) + 2.0 * f; e = 2.0 / n
+    sx = math.copysign(abs(s) ** e, s); cz = math.copysign(abs(c) ** e, c)
+    return Vector((wx * sx, Y_NOSE - L * t, zc - hz * cz))
 
 def surf_normal(t, ang):
     e = 1e-3
@@ -136,14 +141,18 @@ def mesh_from_grid(name, grid, uv_fn, close_u=False, close_v=False, caps=(), xfo
             ju = j + 1 if close_u else j2; iu = i + 1 if close_v else i2
             for l, uv in zip(f.loops, [uv_fn(i, j), uv_fn(i, ju), uv_fn(iu, ju), uv_fn(iu, j)]):
                 l[uv_layer].uv = uv
-    for (cap_pt, row_idx, cap_uv) in caps:
+    for cap in caps:
+        cap_pt, row_idx, cap_uv = cap[:3]
+        rim_uv = cap[3] if len(cap) > 3 else None          # optional: own UV island for the cap (rim uv per column j)
         cv = bm.verts.new(xform(cap_pt)); row = verts[row_idx]
         for j in range(nj):
             j2 = (j + 1) % nj
             if row_idx == 0:
-                vs = [cv, row[j2], row[j]]; uvs = [cap_uv, uv_fn(0, j + 1), uv_fn(0, j)]
+                vs = [cv, row[j2], row[j]]
+                uvs = [cap_uv, rim_uv(j + 1), rim_uv(j)] if rim_uv else [cap_uv, uv_fn(0, j + 1), uv_fn(0, j)]
             else:
-                vs = [cv, row[j], row[j2]]; uvs = [cap_uv, uv_fn(row_idx, j), uv_fn(row_idx, j + 1)]
+                vs = [cv, row[j], row[j2]]
+                uvs = [cap_uv, rim_uv(j), rim_uv(j + 1)] if rim_uv else [cap_uv, uv_fn(row_idx, j), uv_fn(row_idx, j + 1)]
             try:
                 f = bm.faces.new(vs)
             except ValueError:
@@ -155,20 +164,47 @@ def mesh_from_grid(name, grid, uv_fn, close_u=False, close_v=False, caps=(), xfo
     for p in me.polygons: p.use_smooth = True
     return me
 
-def make_fin(name, rays, samples=10, uv_rect=(0, 0, 1, 1), thickness=0.014, xform=lambda p: p):
+FIN_SUB = 3            # interpolated membrane rows between two bony rays
+RAY_THICK = 0.026      # fin thickness on a ray
+MEMBRANE_FACTOR = 0.28 # membrane thickness as a fraction of the ray thickness
+
+def _lerp_ray(a, b, t):
+    return dict(root=a["root"].lerp(b["root"], t), dir=(a["dir"].lerp(b["dir"], t)).normalized(),
+                length=a["length"] * (1 - t) + b["length"] * t, curl=a["curl"].lerp(b["curl"], t))
+
+def make_fin(name, rays, samples=10, uv_rect=(0, 0, 1, 1), thickness=None, xform=lambda p: p):
+    """Fan fin. Bony rays are the given list; FIN_SUB membrane rows are interpolated between them and get
+    a lower Solidify thickness through a vertex group -> real ribbing in the silhouette and shading."""
+    thickness = thickness or RAY_THICK
+    full, weights = [], []
+    for i, r in enumerate(rays):
+        full.append(r); weights.append(1.0)
+        if i < len(rays) - 1:
+            for k in range(1, FIN_SUB + 1):
+                t = k / (FIN_SUB + 1)
+                full.append(_lerp_ray(r, rays[i + 1], t))
+                # membrane sags between rays: thinnest in the middle
+                weights.append(0.0 + 0.25 * (abs(t - 0.5) * 2) ** 2)
     grid = []
-    for r in rays:
+    for r in full:
         row = []
         for k in range(samples + 1):
             f = k / samples
             row.append(r["root"] + r["dir"] * (r["length"] * f) + r["curl"] * (f * f))
         grid.append(row)
-    u0, v0, u1, v1 = uv_rect; nr = len(rays)
+    u0, v0, u1, v1 = uv_rect; nr = len(full)
     uv = lambda i, j: (u0 + (u1 - u0) * i / (nr - 1), v0 + (v1 - v0) * j / samples)
     me = mesh_from_grid(name, grid, uv, xform=xform)
     ob = bpy.data.objects.new(name, me); link(ob)
+    vg = ob.vertex_groups.new(name="Rays")
+    for i, w in enumerate(weights):
+        # mesh_from_grid creates verts row by row, (samples+1) per row; rays taper toward the edge
+        for j in range(samples + 1):
+            edge = j / samples
+            vg.add([i * (samples + 1) + j], max(w, 0.0) * (1.0 - 0.45 * edge) + (1 - max(w, 0.0)) * 0.0, 'REPLACE')
     sol = ob.modifiers.new("Solidify", 'SOLIDIFY'); sol.thickness = thickness; sol.offset = 0
     sol.use_even_offset = True
+    sol.vertex_group = "Rays"; sol.thickness_vertex_group = MEMBRANE_FACTOR
     return ob
 
 # ------------------------------------------------------------------ scene prep
@@ -188,14 +224,20 @@ if coll is None:
 
 # ------------------------------------------------------------------ body mesh
 NT, NA = 64, 40
-T0 = 0.008
+T0 = 0.007
 def t_of(i): return T0 + (1 - T0) * (i / NT) ** 1.15
 grid = [[surf(t_of(i), -math.pi + 2 * math.pi * j / NA) for j in range(NA)] for i in range(NT + 1)]
-body_uv = lambda i, j: (j / NA, t_of(i))
-nose = Vector((0, Y_NOSE, spline(ZC, 0)))
+# UV layout: the bottom strip (v < PLATE_H) is a separate island for the flat front plate (a disc of
+# radius PLATE_R around (0.5, PLATE_C)); the body rings use v = PLATE_H + (1 - PLATE_H) * t.
+PLATE_H, PLATE_C, PLATE_R = 0.12, 0.06, 0.055
+body_uv = lambda i, j: (j / NA, PLATE_H + (1 - PLATE_H) * t_of(i))
+def plate_rim_uv(j):
+    ang = -math.pi + 2 * math.pi * j / NA
+    return (0.5 + PLATE_R * math.sin(ang), PLATE_C - PLATE_R * math.cos(ang))
+nose = Vector((0, Y_NOSE - L * (T0 - 0.004), spline(ZC, T0)))   # small blunt tip plate
 tail_end = Vector((0, Y_NOSE - L, spline(ZC, 1)))
 body_me = mesh_from_grid("CF_Body", grid, body_uv, close_u=True,
-                         caps=[(nose, 0, (0.5, 0.0)), (tail_end, NT, (0.5, 1.0))], xform=pose_spine)
+                         caps=[(nose, 0, (0.5, PLATE_C), plate_rim_uv), (tail_end, NT, (0.5, 1.0))], xform=pose_spine)
 body = bpy.data.objects.new("CF_Body", body_me); link(body)
 
 # ------------------------------------------------------------------ fins
@@ -257,7 +299,7 @@ for i in range(m):
     rays.append(dict(root=root, dir=nrm((0, -math.cos(phi), math.sin(phi))),
                      length=1.55 + 1.25 * fork ** 1.6,
                      curl=Vector((0.28 * math.sin(f * math.pi * 2.0) + 0.12, -0.25, 0.55 * (0.5 - f)))))
-fins.append(make_fin("CF_FinTail", rays, 16, (0.02, 0.02, 0.98, 0.98), thickness=0.016, xform=pose_spine))
+fins.append(make_fin("CF_FinTail", rays, 16, (0.02, 0.02, 0.98, 0.98), thickness=0.03, xform=pose_spine))
 
 # ------------------------------------------------------------------ eyes
 eyes = []
@@ -284,11 +326,11 @@ for sgn in (1, -1):
     q = n.to_track_quat('Z', 'Y').to_matrix().to_4x4()
     rig = pose_rigid_fn(p.y)
     sfx = ".L" if sgn > 0 else ".R"
-    M = Matrix.Translation(p - n * 0.028) @ q
+    M = Matrix.Translation(p - n * 0.036) @ q
     me = mesh_from_grid("CF_Eye" + sfx, sphere_grid(0.09), lambda i, j: (j / 32, i / 16), close_u=True,
                         xform=lambda v, M=M, rig=rig: rig(M @ v))
     eye = bpy.data.objects.new("CF_Eye" + sfx, me); link(eye); eyes.append(eye)
-    M = Matrix.Translation(p + n * 0.008) @ q
+    M = Matrix.Translation(p + n * 0.004) @ q
     me = mesh_from_grid("CF_EyeRing" + sfx, torus_grid(0.088, 0.007), lambda i, j: (i / 48, j / 10), close_u=True, close_v=True,
                         xform=lambda v, M=M, rig=rig: rig(M @ v))
     ring = bpy.data.objects.new("CF_EyeRing" + sfx, me); link(ring); eyes.append(ring)

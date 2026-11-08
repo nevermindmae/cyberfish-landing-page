@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>DeKoi GLB check</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #060a14; }
+  canvas { display: block; }
+  #hud { position: fixed; left: 12px; top: 10px; font: 12px/1.4 ui-monospace, monospace; color: #8a94ab; }
+  #hud button { font: inherit; color: #c9d1e3; background: #0b1636; border: 1px solid #2ea8ff; padding: 4px 10px; margin-right: 10px; cursor: pointer; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="hud"><button id="toggle">open / close</button><span id="info">loading…</span></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x060a14);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.15;
+
+// model is real size (9.4 cm wide), Y up
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.005, 10);
+camera.position.set(0.28, 0.2, 0.28);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.03, 0); controls.enableDamping = true;
+
+const key = new THREE.DirectionalLight(0xeef4ff, 1.6); key.position.set(-0.3, 0.5, 0.4); scene.add(key);
+const rim = new THREE.DirectionalLight(0x2ea8ff, 2.5); rim.position.set(-0.3, 0.15, -0.4); scene.add(rim);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 1.0));
+composer.addPass(new OutputPass());
+
+let mixer, action, open = false;
+new GLTFLoader().load('../../public/models/dekoi.glb', (gltf) => {
+  scene.add(gltf.scene);
+  mixer = new THREE.AnimationMixer(gltf.scene);
+  const clip = gltf.animations.find(a => a.name === 'DK_LidOpen');
+  action = mixer.clipAction(clip); action.clampWhenFinished = true; action.setLoop(THREE.LoopOnce);
+  let tris = 0; gltf.scene.traverse(o => { if (o.isMesh) tris += o.geometry.index.count / 3; });
+  const size = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
+  document.getElementById('info').textContent =
+    `${Math.round(tris).toLocaleString()} tris · ${size.toArray().map(v => (v * 100).toFixed(1)).join(' × ')} cm · lid node: ${gltf.scene.getObjectByName('DK_LidRig') ? 'DK_LidRig' : 'missing'} · clip ${clip.duration.toFixed(2)} s`;
+});
+document.getElementById('toggle').onclick = () => {
+  if (!action) return;
+  open = !open; action.paused = false; action.timeScale = open ? 1 : -1;
+  if (open && action.time >= action.getClip().duration) action.reset();
+  action.play();
+};
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { mixer?.update(clock.getDelta()); controls.update(); composer.render(); });
+</script>
+</body>
+</html>

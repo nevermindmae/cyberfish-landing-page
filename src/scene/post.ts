@@ -27,7 +27,6 @@ export class Post {
   readonly composer: EffectComposer;
   private readonly bloom: UnrealBloomPass;
   private readonly grain: ShaderPass;
-  private readonly reducedMotion: boolean;
 
   constructor(
     renderer: THREE.WebGLRenderer,
@@ -35,7 +34,6 @@ export class Post {
     camera: THREE.Camera,
     opts: PostOptions,
   ) {
-    this.reducedMotion = opts.reducedMotion;
     const size = renderer.getSize(new THREE.Vector2());
     const pr = renderer.getPixelRatio();
 
@@ -49,12 +47,20 @@ export class Post {
 
     this.composer.addPass(new RenderPass(scene, camera));
 
+    // Only the emissive circuit traces and eye rings should bloom, not the
+    // white shell. UnrealBloomPass halves the given resolution for its first
+    // mip, so pass the full size: a quarter-res first mip makes thin traces
+    // and the tiny eye rings twinkle as the fish moves sub-pixel.
     this.bloom = new UnrealBloomPass(
-      new THREE.Vector2(Math.max(1, size.x / 2), Math.max(1, size.y / 2)),
-      0.75, // strength
+      new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
+      0.4, // strength
       0.6, // radius
-      0.75, // threshold: lit body stays below, emissive traces go above
+      0.9, // threshold
     );
+    // Soft knee instead of the default near-hard cut (0.01): pixels hovering
+    // around the threshold no longer flip in and out of the bloom each frame.
+    const highPass = this.bloom.highPassUniforms as Record<string, THREE.IUniform<number>>;
+    highPass.smoothWidth.value = 0.5;
     this.composer.addPass(this.bloom);
 
     this.composer.addPass(new OutputPass());
@@ -62,9 +68,14 @@ export class Post {
     this.grain = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        uTime: { value: 0 },
-        uGrain: { value: 0.06 },
+        uGrain: { value: 0.07 },
+        uGrainSize: { value: pr },
         uVignette: { value: 0.45 },
+        uDiveTime: { value: 0 },
+        uWobble: { value: 0 },
+        uFlash: { value: 0 },
+        uDeep: { value: 0 },
+        uDark: { value: 0 },
       },
       vertexShader: GRAIN_VERT,
       fragmentShader: grainFrag,
@@ -74,12 +85,21 @@ export class Post {
 
   setSize(width: number, height: number): void {
     this.composer.setSize(width, height);
-    this.bloom.setSize(Math.max(1, width / 2), Math.max(1, height / 2));
+    this.bloom.setSize(Math.max(1, width), Math.max(1, height));
   }
 
-  render(time: number): void {
-    // Static grain under reduced motion; otherwise it flickers like film.
-    if (!this.reducedMotion) this.grain.uniforms.uTime.value = time % 100;
+  /** Dive transition state, all 0..1 except the clock. */
+  setDive(d: { time: number; wobble: number; flash: number; deep: number; dark: number }): void {
+    const u = this.grain.uniforms;
+    u.uDiveTime.value = d.time;
+    u.uWobble.value = d.wobble;
+    u.uFlash.value = d.flash;
+    u.uDeep.value = d.deep;
+    u.uDark.value = d.dark;
+  }
+
+  render(): void {
+    // The grain is static: a fixed texture over the picture, not a flicker.
     this.composer.render();
   }
 
