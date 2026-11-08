@@ -96,6 +96,9 @@ scene.onDeviceHover = (over) => {
 scene.onMarkStir = (stirring) => {
   if (stirring) void sfx.play('hover');
 };
+// Where a chapter's copy sits on screen, so the fish stops beside it, not behind it.
+scene.copyBounds = (chapter) =>
+  document.querySelector(`.${chapter}-copy`)?.getBoundingClientRect() ?? null;
 
 try {
   await scene.loadFish((f) => loader.setProgress(0.2 + f * 0.7));

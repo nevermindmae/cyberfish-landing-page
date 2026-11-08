@@ -8,7 +8,7 @@ import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
 import { Floor } from './floor';
 import { loadLogoPoints } from './logo';
-import { Safety } from './safety';
+import { FishLane, type NdcRect } from './lane';
 import { Water } from './water';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
@@ -206,8 +206,19 @@ export class CyberScene {
   /** The water shared by every chapter below, and the chapters' own content. */
   private water: Water | null = null;
   deep: Deep | null = null;
-  safety: Safety | null = null;
+  /** The hero fish's lane, in the chapters that have it (safety, team), and which one. */
+  lane: FishLane | null = null;
+  private laneChapter: Chapter | null = null;
   floor: Floor | null = null;
+  /**
+   * The current chapter's copy on screen (CSS pixels), so the fish can stop
+   * clear of it; null when there is none. Set by the UI.
+   */
+  copyBounds: ((chapter: Chapter) => DOMRect | null) | null = null;
+  private readonly keepOut: NdcRect = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  private keepOutKnown: NdcRect | null = null;
+  private keepOutChapter: Chapter | null = null;
+  private keepOutAt = -1;
   /** Seconds since the current chapter's hand-off, and the lens's rest point below. */
   private deepT = 0;
   private readonly deepBase = new THREE.Vector3();
@@ -480,7 +491,7 @@ export class CyberScene {
     this.post.dispose();
     this.ocean.dispose();
     this.deep?.dispose();
-    this.safety?.dispose();
+    this.lane?.dispose();
     this.floor?.dispose();
     this.water?.dispose();
     this.renderer.dispose();
@@ -721,15 +732,16 @@ export class CyberScene {
         await this.renderer.compileAsync(deep.root, this.camera, this.scene);
         if (this.deep === deep) deep.reveal();
       });
-    } else if (chapter === 'safety') {
+    } else if (chapter === 'safety' || chapter === 'team') {
       // Copy over the water, with the hero fish back in the picture: it
       // swims across far behind the words, lit like the unit.
-      const safety = new Safety();
-      this.rootFor('safety', safety.root);
-      this.scene.add(safety.root);
-      this.safety = safety;
+      const lane = new FishLane();
+      this.rootFor(chapter, lane.root);
+      this.scene.add(lane.root);
+      this.lane = lane;
+      this.laneChapter = chapter;
       if (this.fish) {
-        safety.update(1 / 60, this.camera, this.fish);
+        lane.update(1 / 60, this.camera, this.fish, this.keepOutFor(chapter));
         this.fish.update(this.time, 1 / 60, this.pointer);
         this.fish.root.visible = true;
         for (const { light, intensity } of this.fishLights) light.intensity = intensity;
@@ -755,7 +767,25 @@ export class CyberScene {
         });
       }
     }
-    // 'market' and 'team' are copy over the water alone.
+    // 'market' is copy over the water alone.
+  }
+
+  /** The chapter's copy as a box in NDC, for the fish to stop clear of; null if unknown. */
+  private keepOutFor(chapter: Chapter): NdcRect | null {
+    // Measured a few times a second at most: it is a layout read.
+    if (chapter === this.keepOutChapter && this.time - this.keepOutAt < 0.4) return this.keepOutKnown;
+    this.keepOutChapter = chapter;
+    this.keepOutAt = this.time;
+    const rect = this.copyBounds?.(chapter);
+    if (!rect || rect.width === 0) return (this.keepOutKnown = null);
+    const w = this.container.clientWidth || window.innerWidth;
+    const h = this.container.clientHeight || window.innerHeight;
+    const k = this.keepOut;
+    k.x0 = (rect.left / w) * 2 - 1;
+    k.x1 = (rect.right / w) * 2 - 1;
+    k.y1 = 1 - (rect.top / h) * 2;
+    k.y0 = 1 - (rect.bottom / h) * 2;
+    return (this.keepOutKnown = k);
   }
 
   /** The chapter is now the current one: settle the water for it. */
@@ -770,14 +800,15 @@ export class CyberScene {
 
   private leave(chapter: Chapter): void {
     if (chapter === 'deep' && this.deep) this.removeDeep(this.deep);
-    if (chapter === 'safety' && this.safety) this.removeSafety(this.safety);
+    if (chapter === this.laneChapter && this.lane) this.removeLane(this.lane);
     if (chapter === 'floor' && this.floor) this.removeFloor(this.floor);
   }
 
-  private removeSafety(safety: Safety): void {
-    this.scene.remove(safety.root);
-    safety.dispose();
-    this.safety = null;
+  private removeLane(lane: FishLane): void {
+    this.scene.remove(lane.root);
+    lane.dispose();
+    this.lane = null;
+    this.laneChapter = null;
     if (this.fish) {
       this.fish.steer(null);
       this.fish.swim = 1;
@@ -893,8 +924,8 @@ export class CyberScene {
     this.camera.updateMatrixWorld();
 
     this.water?.update(this.time, base, descent, this.levelOf('floor'));
-    if (this.safety && this.fish) {
-      this.safety.update(dt, this.camera, this.fish);
+    if (this.lane && this.laneChapter && this.fish) {
+      this.lane.update(dt, this.camera, this.fish, this.keepOutFor(this.laneChapter));
       this.fish.update(this.time, dt, this.pointer);
     }
     if (deep) {
