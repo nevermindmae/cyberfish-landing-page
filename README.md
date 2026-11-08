@@ -15,7 +15,7 @@
 
 Single-page landing site for **DeKoi**, a small box you plug into your home or office network. It pretends to be a storage drive. If something touches it, you get an alert on your phone within a minute.
 
-Inspired by my favourite three.js projects, DeKoi came to life in just under 24 hours thanks to Midjourney, Blender and Claude. Built from a separate repository as we considered it part of the presentation rather than the product itself.
+Inspired by my favourite three.js projects, DeKoi came to life in just under 24 hours thanks to Midjourney, Blender and Claude. Built from a separate repository as we considered it part of the presentation and an advertising asset rather than the product itself.
 
 ## The dive
 
