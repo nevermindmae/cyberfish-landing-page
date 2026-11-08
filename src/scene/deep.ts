@@ -51,7 +51,7 @@ const MOTE_HALF_HEIGHT = 12;
  * so the long axis runs diagonally, then a slow drift on top.
  */
 const DEVICE_DISTANCE = 6;
-const DEVICE_SCALE = 7.5;
+const DEVICE_SCALE = 8.6;
 /** Sits a little low: the lid lifts up and toward the lens when it opens. */
 const DEVICE_POS_LANDSCAPE = new THREE.Vector3(1.3, -0.3, -DEVICE_DISTANCE);
 const DEVICE_POS_PORTRAIT = new THREE.Vector3(0, -0.65, -DEVICE_DISTANCE);

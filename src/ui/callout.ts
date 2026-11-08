@@ -1,9 +1,11 @@
 /**
  * Callout for the board inside the DeKoi unit: a dot on the part, a leader
- * out of the box (one diagonal leg, then a short horizontal one), and the
- * label at the end. The scene feeds it the part's screen position every
- * frame; this picks the leader's direction so the label lands in open water
- * and draws it in once told the lid is open.
+ * dropping out of the bottom of the box (leaning a little toward the
+ * middle of the frame), and the label centred under its end, so it never
+ * reaches across to the copy beside the unit. The scene feeds it the
+ * part's screen position every frame; when there is no room below, the
+ * leader goes up and the label sits above instead. Drawn in once told the
+ * lid is open.
  */
 
 export interface CalloutPoint {
@@ -14,11 +16,10 @@ export interface CalloutPoint {
   open: boolean;
 }
 
-/** Leader legs, in CSS pixels. */
-const LEG_X = 150;
-const LEG_Y = 90;
-const LEG_TAIL = 50;
-const LABEL_GAP = 12;
+/** Leader: how far it drops (clear of the open unit) and leans, in CSS pixels. */
+const LEG_X = 36;
+const LEG_Y = 170;
+const LABEL_GAP = 14;
 /** Least distance between the label and the viewport edge. */
 const EDGE_MARGIN = 20;
 
@@ -44,34 +45,26 @@ export class Callout {
     }
     const w = window.innerWidth;
     const h = window.innerHeight;
-    // Lead away from the box toward the emptier side, and down unless the
-    // part is already low in the frame.
-    const dx = p.x > w * 0.5 ? -1 : 1;
-    const dy = p.y > h * 0.7 ? -1 : 1;
-    const ey = p.y + dy * LEG_Y;
-    let ex = p.x + dx * LEG_X;
-    let tx = ex + dx * LEG_TAIL;
-
-    // Label sits past the tail, vertically centred on it, on the far side.
-    // Keep it inside the frame: shorten the leader rather than run off.
     const lw = this.label.offsetWidth;
     const lh = this.label.offsetHeight;
-    let lx = dx < 0 ? tx - LABEL_GAP - lw : tx + LABEL_GAP;
-    const minX = EDGE_MARGIN;
-    const maxX = w - EDGE_MARGIN - lw;
-    if (lx < minX || lx > maxX) {
-      lx = Math.min(Math.max(lx, minX), maxX);
-      tx = dx < 0 ? lx + lw + LABEL_GAP : lx - LABEL_GAP;
-      if ((tx - ex) * dx < 0) ex = tx;
-    }
+    // Down and out of the box, unless the label would then leave the frame.
+    const dy = p.y + LEG_Y + LABEL_GAP + lh + EDGE_MARGIN > h ? -1 : 1;
+    // Leaning a little toward the middle of the frame.
+    const dx = p.x > w * 0.5 ? -1 : 1;
+    const ey = p.y + dy * LEG_Y;
+    const ex = p.x + dx * LEG_X;
+
+    // Label centred under (or over) the leader's end, kept inside the frame.
+    const lx = Math.min(Math.max(ex - lw / 2, EDGE_MARGIN), w - EDGE_MARGIN - lw);
+    const ly = dy > 0 ? ey + LABEL_GAP : ey - LABEL_GAP - lh;
 
     this.dot.setAttribute('cx', p.x.toFixed(1));
     this.dot.setAttribute('cy', p.y.toFixed(1));
     this.leader.setAttribute(
       'points',
-      `${p.x.toFixed(1)},${p.y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)} ${tx.toFixed(1)},${ey.toFixed(1)}`,
+      `${p.x.toFixed(1)},${p.y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`,
     );
-    this.label.style.transform = `translate(${lx.toFixed(1)}px, ${(ey - lh / 2).toFixed(1)}px)`;
+    this.label.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
 
     this.setOn(p.open);
   }
