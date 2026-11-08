@@ -152,6 +152,8 @@ html[data-surfacing] .callout {
 html[data-deep][data-descending] .deep-block,
 html[data-deep][data-safety] .deep-block,
 html[data-deep][data-market] .deep-block,
+html[data-deep][data-business] .deep-block,
+html[data-deep][data-gtm] .deep-block,
 html[data-deep][data-team] .deep-block,
 html[data-deep][data-floor] .deep-block {
   opacity: 0;
@@ -162,6 +164,8 @@ html[data-deep][data-floor] .deep-block {
 html[data-deep][data-descending] .callout,
 html[data-deep][data-safety] .callout,
 html[data-deep][data-market] .callout,
+html[data-deep][data-business] .callout,
+html[data-deep][data-gtm] .callout,
 html[data-deep][data-team] .callout,
 html[data-deep][data-floor] .callout {
   opacity: 0;
@@ -212,6 +216,8 @@ html[data-deep] .descend {
    already there. */
 html[data-deep][data-safety] .descend,
 html[data-deep][data-market] .descend,
+html[data-deep][data-business] .descend,
+html[data-deep][data-gtm] .descend,
 html[data-deep][data-team] .descend {
   transition-delay: 700ms, 700ms, 0ms;
 }

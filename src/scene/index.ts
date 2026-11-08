@@ -90,8 +90,8 @@ const DEEP_LOOK = new THREE.Vector3(0, 0, -10);
  * Between the open-water chapters the lens glides down through the water;
  * the floor is reached through black (it has its own light and ground).
  */
-export type Chapter = 'deep' | 'safety' | 'market' | 'team' | 'floor';
-const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'team', 'floor'];
+export type Chapter = 'deep' | 'safety' | 'market' | 'business' | 'gtm' | 'team' | 'floor';
+const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'business', 'gtm', 'team', 'floor'];
 const LEVEL_DROP = 16;
 const GLIDE_TIME = 2.0;
 /** To and from the floor: a quick dip through black, and the floor comes up out of it. */
@@ -767,7 +767,7 @@ export class CyberScene {
         });
       }
     }
-    // 'market' is copy over the water alone.
+    // 'market', 'business' and 'gtm' are copy over the water alone.
   }
 
   /** The chapter's copy as a box in NDC, for the fish to stop clear of; null if unknown. */

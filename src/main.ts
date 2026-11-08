@@ -7,6 +7,8 @@ import './ui/back.css';
 import './ui/deep.css';
 import './ui/safety.css';
 import './ui/market.css';
+import './ui/business.css';
+import './ui/gtm.css';
 import './ui/team.css';
 import './ui/floor.css';
 import { Loader } from './ui/loader';
@@ -152,6 +154,8 @@ const changing = (): boolean =>
 const reflectChapter = (): void => {
   delete html.dataset.safety;
   delete html.dataset.market;
+  delete html.dataset.business;
+  delete html.dataset.gtm;
   delete html.dataset.team;
   delete html.dataset.floor;
   const chapter: Chapter = scene.chapter;
@@ -228,6 +232,8 @@ if (backTop) {
     delete html.dataset.deep;
     delete html.dataset.safety;
     delete html.dataset.market;
+    delete html.dataset.business;
+    delete html.dataset.gtm;
     delete html.dataset.team;
     delete html.dataset.floor;
     delete html.dataset.revisit;
