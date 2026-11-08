@@ -707,14 +707,13 @@ export class CyberScene {
       });
     } else if (chapter === 'safety') {
       // Copy over the water, with the hero fish back in the picture: it
-      // hovers in the lower right behind the words, lit like the unit.
+      // swims across far behind the words, lit like the unit.
       const safety = new Safety();
       this.rootFor('safety', safety.root);
       this.scene.add(safety.root);
       this.safety = safety;
       if (this.fish) {
-        this.fish.steer(null);
-        this.fish.centre.copy(safety.fishCentre(this.camera.aspect, _v1));
+        safety.update(this.time, this.camera, this.fish);
         this.fish.update(this.time, 1 / 60, this.pointer);
         this.fish.root.visible = true;
         for (const { light, intensity } of this.fishLights) light.intensity = intensity;
@@ -751,7 +750,10 @@ export class CyberScene {
     this.scene.remove(safety.root);
     safety.dispose();
     this.safety = null;
-    if (this.fish) this.fish.root.visible = false;
+    if (this.fish) {
+      this.fish.steer(null);
+      this.fish.root.visible = false;
+    }
   }
 
   /** The fish's surface as points, sampled once. */
@@ -835,7 +837,7 @@ export class CyberScene {
 
     this.water?.update(this.time, base, descent, this.levelOf('floor'));
     if (this.safety && this.fish) {
-      this.safety.fishCentre(this.camera.aspect, this.fish.centre);
+      this.safety.update(this.time, this.camera, this.fish);
       this.fish.update(this.time, dt, this.pointer);
     }
     if (deep) {
