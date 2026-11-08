@@ -146,9 +146,12 @@ html[data-market] .market-halo {
     transform 500ms ease;
 }
 
+/* Hidden: the dash sits well clear of the path (pathLength 1) on both
+   sides. With a dash ending exactly at the path's ends, Safari draws the
+   round caps of the zero-length remnants as stray dots. */
 .market-axis {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dasharray: 1 3;
+  stroke-dashoffset: 2;
   transition: stroke-dashoffset 500ms ease;
 }
 
@@ -227,7 +230,7 @@ html[data-market][data-surfacing] .market-aside {
 html[data-market][data-descending] .market-axis,
 html[data-market][data-ascending] .market-axis,
 html[data-market][data-surfacing] .market-axis {
-  stroke-dashoffset: 1;
+  stroke-dashoffset: 2;
   transition: stroke-dashoffset 500ms ease;
 }
 
