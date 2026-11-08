@@ -7,6 +7,7 @@ import { Sky } from './sky';
 import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
 import { Floor } from './floor';
+import { Safety } from './safety';
 import { Water } from './water';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
 
@@ -198,6 +199,7 @@ export class CyberScene {
   /** The water shared by every chapter below, and the chapters' own content. */
   private water: Water | null = null;
   deep: Deep | null = null;
+  safety: Safety | null = null;
   floor: Floor | null = null;
   /** Seconds since the current chapter's hand-off, and the lens's rest point below. */
   private deepT = 0;
@@ -463,6 +465,7 @@ export class CyberScene {
     this.post.dispose();
     this.ocean.dispose();
     this.deep?.dispose();
+    this.safety?.dispose();
     this.floor?.dispose();
     this.water?.dispose();
     this.renderer.dispose();
@@ -702,6 +705,20 @@ export class CyberScene {
         await this.renderer.compileAsync(deep.root, this.camera, this.scene);
         if (this.deep === deep) deep.reveal();
       });
+    } else if (chapter === 'safety') {
+      // Copy over the water, with the hero fish back in the picture: it
+      // hovers in the lower right behind the words, lit like the unit.
+      const safety = new Safety();
+      this.rootFor('safety', safety.root);
+      this.scene.add(safety.root);
+      this.safety = safety;
+      if (this.fish) {
+        this.fish.steer(null);
+        this.fish.centre.copy(safety.fishCentre(this.camera.aspect, _v1));
+        this.fish.update(this.time, 1 / 60, this.pointer);
+        this.fish.root.visible = true;
+        for (const { light, intensity } of this.fishLights) light.intensity = intensity;
+      }
     } else if (chapter === 'floor') {
       const floor = new Floor({
         mobile: this.opts.mobile,
@@ -712,7 +729,6 @@ export class CyberScene {
       this.scene.add(floor.root);
       this.floor = floor;
     }
-    // 'safety' is copy over the water alone.
   }
 
   /** The chapter is now the current one: settle the water for it. */
@@ -727,7 +743,15 @@ export class CyberScene {
 
   private leave(chapter: Chapter): void {
     if (chapter === 'deep' && this.deep) this.removeDeep(this.deep);
+    if (chapter === 'safety' && this.safety) this.removeSafety(this.safety);
     if (chapter === 'floor' && this.floor) this.removeFloor(this.floor);
+  }
+
+  private removeSafety(safety: Safety): void {
+    this.scene.remove(safety.root);
+    safety.dispose();
+    this.safety = null;
+    if (this.fish) this.fish.root.visible = false;
   }
 
   /** The fish's surface as points, sampled once. */
@@ -810,6 +834,10 @@ export class CyberScene {
     this.camera.updateMatrixWorld();
 
     this.water?.update(this.time, base, descent, this.levelOf('floor'));
+    if (this.safety && this.fish) {
+      this.safety.fishCentre(this.camera.aspect, this.fish.centre);
+      this.fish.update(this.time, dt, this.pointer);
+    }
     if (deep) {
       deep.update(this.time, dt, this.deepT, this.camera.aspect);
       this.reportAnchor(deep);
@@ -914,6 +942,8 @@ export class CyberScene {
     this.ocean.material.normalScale.setScalar(0.06);
     if (this.fish) {
       this.fish.steer(null);
+      // Back to its hover above the water (x and y follow the camera per frame).
+      this.fish.centre.copy(this.focus);
       this.fish.root.visible = true;
       for (const { light, intensity } of this.fishLights) light.intensity = intensity;
     }
