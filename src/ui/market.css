@@ -87,12 +87,6 @@
   opacity: 0.85;
 }
 
-/* DeKoi's price is not set yet: a visibly provisional line. */
-.market-note-tbd {
-  font-style: italic;
-  opacity: 0.6;
-}
-
 /* DeKoi: the accent, hotter glow, a slow pulse round it. */
 .market-point-us .market-dot {
   fill: var(--accent);
