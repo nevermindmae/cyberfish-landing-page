@@ -16,6 +16,9 @@ uniform vec3 uOrigin;
 
 varying vec3 vWorld;
 varying float vHeight;
+#ifdef SMOOTH_NORMAL
+varying vec3 vNormal;
+#endif
 
 vec2 hash2(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
@@ -55,9 +58,16 @@ float caustics(vec2 p, float t) {
 }
 
 void main() {
-  // Geometric normal from the world position's screen derivatives.
+#ifdef SMOOTH_NORMAL
+  // The mesh's own normal (the dunes shade smoothly).
+  vec3 n = normalize(vNormal);
+  if (!gl_FrontFacing) n = -n;
+#else
+  // Geometric normal from the world position's screen derivatives
+  // (the procedural plane, and the rocks' facets).
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (n.y < 0.0) n = -n;
+#endif
 
   float ndl = max(dot(n, normalize(uLightDir)), 0.0);
   // A soft wrap so the troughs are not pure black.
