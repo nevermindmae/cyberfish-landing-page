@@ -10,7 +10,7 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(1160px, 82vw);
+  width: min(1360px, 88vw);
   margin: 0;
   pointer-events: none;
 }
@@ -26,8 +26,8 @@
 
 .market-body {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
-  gap: clamp(32px, 5vw, 96px);
+  grid-template-columns: minmax(0, 8fr) minmax(0, 3fr);
+  gap: clamp(32px, 4vw, 72px);
   align-items: center;
 }
 
@@ -58,11 +58,12 @@
   stroke-linejoin: round;
 }
 
+/* Axis labels in the accent, set apart from the white points. */
 .market-axis-label {
-  font: 400 12.5px var(--font-mono);
-  letter-spacing: 0.04em;
-  fill: var(--white);
-  opacity: 0.75;
+  font: 500 11.5px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: var(--accent);
 }
 
 .market-axis-label-end,
@@ -84,6 +85,12 @@
   font: 400 13px var(--font-mono);
   fill: var(--white);
   opacity: 0.85;
+}
+
+/* DeKoi's price is not set yet: a visibly provisional line. */
+.market-note-tbd {
+  font-style: italic;
+  opacity: 0.6;
 }
 
 /* DeKoi: the accent, hotter glow, a slow pulse round it. */
@@ -183,7 +190,7 @@ html[data-market] .market-arrow {
 }
 
 html[data-market] .market-axis-label {
-  opacity: 0.75;
+  opacity: 1;
 }
 
 html[data-market] .market-point {
