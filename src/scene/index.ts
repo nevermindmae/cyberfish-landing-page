@@ -95,8 +95,8 @@ const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'team', 'floor'];
 const LEVEL_DROP = 16;
 const GLIDE_TIME = 3.2;
 /** Particles in the floor's mark, and how wide it hangs (world units). */
-const MARK_POINTS = 16000;
-const MARK_POINTS_MOBILE = 6000;
+const MARK_POINTS = 21000;
+const MARK_POINTS_MOBILE = 8000;
 const MARK_WIDTH = 5.2;
 /** Back to the top: the deep goes dark, then the sea returns out of black. */
 const SURFACE_FADE_OUT = 1.2;
@@ -246,6 +246,9 @@ export class CyberScene {
   onDeviceHover: ((over: boolean) => void) | null = null;
   private readonly raycaster = new THREE.Raycaster();
   private deviceHovered = false;
+  /** The cursor starts (true) or stops (false) disturbing the floor's particle mark. */
+  onMarkStir: ((stirring: boolean) => void) | null = null;
+  private markStirred = false;
 
   constructor(container: HTMLElement, opts: SceneOptions) {
     this.container = container;
@@ -848,6 +851,8 @@ export class CyberScene {
     this.scene.remove(floor.root);
     floor.dispose();
     this.floor = null;
+    if (this.markStirred) this.onMarkStir?.(false);
+    this.markStirred = false;
   }
 
   /** Camera, content and fades for the chapters below the surface. */
@@ -898,7 +903,11 @@ export class CyberScene {
         this.raycaster.setFromCamera(this.pointer, this.camera);
         ray = this.raycaster.ray;
       }
-      floor.update(this.time, dt, this.camera, ray);
+      const stirring = floor.update(this.time, dt, this.camera, ray);
+      if (stirring !== this.markStirred) {
+        this.markStirred = stirring;
+        this.onMarkStir?.(stirring);
+      }
     }
 
     if (tr) {

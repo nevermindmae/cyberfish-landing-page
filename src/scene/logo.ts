@@ -8,16 +8,16 @@
 
 /** The mark's proportions (width : height) and the stroke's width as a share of the width. */
 const ASPECT = 2.5;
-const STROKE = 0.062;
-/** The line, in unit coordinates (x right 0..1, y down 0..1). */
+const STROKE = 0.095;
+/** The line, in unit coordinates (x right 0..1, y down 0..1); inset so the round caps stay on the canvas. */
 const LINE: Array<[number, number]> = [
-  [0.03, 0.1],
-  [0.37, 0.5],
-  [0.66, 0.1],
-  [0.97, 0.5],
-  [0.66, 0.9],
-  [0.37, 0.5],
-  [0.03, 0.9],
+  [0.06, 0.16],
+  [0.38, 0.5],
+  [0.66, 0.16],
+  [0.94, 0.5],
+  [0.66, 0.84],
+  [0.38, 0.5],
+  [0.06, 0.84],
 ];
 /** Raster width used for the hit test. */
 const RASTER_W = 1200;
@@ -69,7 +69,7 @@ export async function loadLogoPoints(count: number, width: number): Promise<Floa
     const jy = (Math.random() + Math.random() - 1) * 0.014 * w;
     out[n * 3] = (x + jx) * scale - width / 2;
     out[n * 3 + 1] = height / 2 - (y + jy) * scale;
-    out[n * 3 + 2] = (Math.random() + Math.random() - 1) * 0.01 * width;
+    out[n * 3 + 2] = (Math.random() + Math.random() - 1) * 0.016 * width;
     n++;
   }
   return n === count ? out : out.slice(0, n * 3);

@@ -72,6 +72,8 @@ const STIR_FORCE = 12;
 const SWIRL = 0.7;
 /** Cap on how far any particle can be flung from its rest point. */
 const STIR_REACH = 1.6;
+/** How many particles the ray must be pushing for it to count as touching the mark. */
+const STIR_TOUCH = 12;
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -191,8 +193,9 @@ export class Floor {
    * @param dt      frame delta
    * @param camera  for the floor's distance fade
    * @param ray     the pointer's ray in world space, or null when there is none
+   * @returns whether the ray is disturbing the mark this frame
    */
-  update(time: number, dt: number, camera: THREE.Camera, ray: THREE.Ray | null): void {
+  update(time: number, dt: number, camera: THREE.Camera, ray: THREE.Ray | null): boolean {
     for (const m of this.materials) if (m.uniforms.uTime) m.uniforms.uTime.value = time;
     for (const m of this.seabedMaterials) {
       m.uniforms.uCamera.value.copy(camera.position);
@@ -208,15 +211,14 @@ export class Floor {
     _q.setFromAxisAngle(_up, Math.sin(time * 0.19) * 0.09);
     this.markGroup.quaternion.copy(_q);
 
-    if (this.swarm) {
-      let local: THREE.Ray | null = null;
-      if (ray) {
-        this.markGroup.updateWorldMatrix(true, false);
-        _m.copy(this.markGroup.matrixWorld).invert();
-        local = _ray.copy(ray).applyMatrix4(_m);
-      }
-      this.swarm.update(dt, local);
+    if (!this.swarm) return false;
+    let local: THREE.Ray | null = null;
+    if (ray) {
+      this.markGroup.updateWorldMatrix(true, false);
+      _m.copy(this.markGroup.matrixWorld).invert();
+      local = _ray.copy(ray).applyMatrix4(_m);
     }
+    return this.swarm.update(dt, local) >= STIR_TOUCH;
   }
 
   dispose(): void {
@@ -285,11 +287,15 @@ class Swarm {
     this.points.renderOrder = 3;
   }
 
-  /** `ray` is in the swarm's local space, or null for no cursor. */
-  update(dt: number, ray: THREE.Ray | null): void {
+  /**
+   * `ray` is in the swarm's local space, or null for no cursor.
+   * @returns how many particles the ray pushed this frame
+   */
+  update(dt: number, ray: THREE.Ray | null): number {
     const h = Math.min(dt, 1 / 30);
     const { rest, pos, vel, kick } = this;
     const n = kick.length;
+    let touched = 0;
     const ox = ray?.origin.x ?? 0;
     const oy = ray?.origin.y ?? 0;
     const oz = ray?.origin.z ?? 0;
@@ -321,6 +327,7 @@ class Swarm {
           const rz = pz - (oz + dz * t);
           const d2 = rx * rx + ry * ry + rz * rz;
           if (d2 < r2) {
+            touched++;
             const d = Math.sqrt(d2) + 1e-4;
             const u = 1 - d / STIR_RADIUS;
             const fall = u * u * (3 - 2 * u);
@@ -368,5 +375,6 @@ class Swarm {
     const moving = energy > 1e-6 * n;
     if (moving || this.live) this.attr.needsUpdate = true;
     this.live = moving;
+    return touched;
   }
 }

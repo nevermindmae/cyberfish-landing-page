@@ -91,6 +91,11 @@ if (calloutEl) {
 scene.onDeviceHover = (over) => {
   if (over) void sfx.play('hover');
 };
+// So does the particle mark on the floor: a hover each time the cursor
+// starts to disturb it.
+scene.onMarkStir = (stirring) => {
+  if (stirring) void sfx.play('hover');
+};
 
 try {
   await scene.loadFish((f) => loader.setProgress(0.2 + f * 0.7));
