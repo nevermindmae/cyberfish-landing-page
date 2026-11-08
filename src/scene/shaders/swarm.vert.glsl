@@ -18,7 +18,7 @@ void main() {
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
   float depth = max(-mv.z, 0.1);
-  gl_PointSize = min(aSeed.y * uPixelRatio * 30.0 / depth, 14.0 * uPixelRatio);
+  gl_PointSize = min(aSeed.y * uPixelRatio * 30.0 / depth, 22.0 * uPixelRatio);
 
   vSeed = aSeed.x;
   vTwinkle = 0.75 + 0.25 * sin(uTime * 2.3 + aSeed.z * 6.2831);

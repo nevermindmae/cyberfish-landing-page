@@ -8,8 +8,8 @@ import swarmFrag from './shaders/swarm.frag.glsl?raw';
 /**
  * The floor: the last chapter, down on the seabed. Dunes of dim sand under
  * a pool of caustics, one shaft of light from far above, motes, and the
- * fish itself hanging in the water as a cloud of particles that scatter
- * from the cursor and drift back into shape.
+ * CyberFish mark hanging in the water as a cloud of particles that swirl
+ * away from the cursor and drift back into shape.
  *
  * Laid out like the deep: `root` sits where the camera rests, the camera
  * looks down -Z (pitched down a little by `lookOffset`).
@@ -18,8 +18,8 @@ import swarmFrag from './shaders/swarm.frag.glsl?raw';
 export interface FloorOptions {
   mobile: boolean;
   pixelRatio: number;
-  /** Fish surface points in fish-root space (Fish.samplePoints), or null. */
-  fishPoints: Float32Array | null;
+  /** The mark's points (loadLogoPoints), or null to attach them later with setCloud(). */
+  cloud: Float32Array | null;
 }
 
 /** Camera height above the mean sand level, and where the lens aims. */
@@ -45,30 +45,26 @@ const RAY = { distance: 30, angle: -0.32, seed: 2.9, intensity: 0.5, anchor: 0.3
 const MOTE_COUNT = 420;
 const MOTE_COUNT_MOBILE = 180;
 
-/**
- * The fish: where it hangs, how big (the model is ~6.1 units long), and
- * its facing (nose toward screen right, a little toward the viewer).
- */
-const FISH_POS = new THREE.Vector3(0.2, -0.45, -11);
-const FISH_SCALE = 0.85;
-const FISH_DIR = new THREE.Vector3(1, 0, 0.42).normalize();
-const FISH_COLOR = new THREE.Color('#a9d6ff');
+/** The mark: where it hangs (facing the lens) and its colour. */
+const MARK_POS = new THREE.Vector3(0, -0.3, -11);
+const MARK_COLOR = new THREE.Color('#a9d6ff');
 
 /**
- * Particle dynamics, in fish units. A spring pulls each particle back to
- * its place on the surface, lightly under-damped so the cloud bounces; the
- * cursor ray pushes particles out of a tube around it.
+ * Particle dynamics, in world units. A soft spring draws each particle
+ * back to its place in the mark, under-damped so the cloud eases home
+ * rather than snapping; the cursor ray pushes particles out of a tube
+ * around it and swirls them round it, so the break-up flows like water.
  */
-const SPRING = 14;
-const DAMPING = 3.2;
-const STIR_RADIUS = 1.05;
-const STIR_FORCE = 34;
+const SPRING = 5;
+const DAMPING = 2.4;
+const STIR_RADIUS = 1.3;
+const STIR_FORCE = 16;
+const SWIRL = 0.7;
 /** Cap on how far any particle can be flung from its rest point. */
-const STIR_REACH = 2.6;
+const STIR_REACH = 2.4;
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
-const _origin = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _ray = new THREE.Ray();
 
@@ -80,8 +76,9 @@ export class Floor {
   private readonly materials: THREE.ShaderMaterial[] = [];
   private readonly geometries: THREE.BufferGeometry[] = [];
   private readonly floorMaterial: THREE.ShaderMaterial;
-  private readonly swarm: Swarm | null = null;
-  private readonly fishGroup = new THREE.Group();
+  private swarm: Swarm | null = null;
+  private readonly pixelRatio: number;
+  private readonly markGroup = new THREE.Group();
 
   constructor(opts: FloorOptions) {
     // Seabed.
@@ -126,18 +123,20 @@ export class Floor {
     this.geometries.push(motes.geometry);
     this.root.add(motes.object);
 
-    // The fish.
-    this.fishGroup.position.copy(FISH_POS);
-    this.fishGroup.scale.setScalar(FISH_SCALE);
-    _m.lookAt(_origin, FISH_DIR, _up);
-    this.fishGroup.quaternion.setFromRotationMatrix(_m);
-    this.root.add(this.fishGroup);
-    if (opts.fishPoints) {
-      this.swarm = new Swarm(opts.fishPoints, opts.pixelRatio);
-      this.materials.push(this.swarm.material);
-      this.geometries.push(this.swarm.geometry);
-      this.fishGroup.add(this.swarm.points);
-    }
+    // The mark.
+    this.pixelRatio = opts.pixelRatio;
+    this.markGroup.position.copy(MARK_POS);
+    this.root.add(this.markGroup);
+    if (opts.cloud) this.setCloud(opts.cloud);
+  }
+
+  /** Hang the mark's points in the water (once; later calls are ignored). */
+  setCloud(points: Float32Array): void {
+    if (this.swarm) return;
+    this.swarm = new Swarm(points, this.pixelRatio);
+    this.materials.push(this.swarm.material);
+    this.geometries.push(this.swarm.geometry);
+    this.markGroup.add(this.swarm.points);
   }
 
   /**
@@ -151,21 +150,20 @@ export class Floor {
     this.floorMaterial.uniforms.uCamera.value.copy(camera.position);
     this.root.getWorldPosition(this.floorMaterial.uniforms.uOrigin.value as THREE.Vector3);
 
-    // The fish holds station: a slow drift and the gentlest turn.
-    this.fishGroup.position.set(
-      FISH_POS.x + Math.sin(time * 0.31) * 0.16,
-      FISH_POS.y + Math.sin(time * 0.47 + 1.2) * 0.12,
-      FISH_POS.z + Math.sin(time * 0.23 + 2.5) * 0.1,
+    // The mark holds station: a slow drift and the gentlest turn.
+    this.markGroup.position.set(
+      MARK_POS.x + Math.sin(time * 0.31) * 0.16,
+      MARK_POS.y + Math.sin(time * 0.47 + 1.2) * 0.12,
+      MARK_POS.z + Math.sin(time * 0.23 + 2.5) * 0.1,
     );
-    _q.setFromAxisAngle(_up, Math.sin(time * 0.19) * 0.07);
-    _m.lookAt(_origin, FISH_DIR, _up);
-    this.fishGroup.quaternion.setFromRotationMatrix(_m).premultiply(_q);
+    _q.setFromAxisAngle(_up, Math.sin(time * 0.19) * 0.09);
+    this.markGroup.quaternion.copy(_q);
 
     if (this.swarm) {
       let local: THREE.Ray | null = null;
       if (ray) {
-        this.fishGroup.updateWorldMatrix(true, false);
-        _m.copy(this.fishGroup.matrixWorld).invert();
+        this.markGroup.updateWorldMatrix(true, false);
+        _m.copy(this.markGroup.matrixWorld).invert();
         local = _ray.copy(ray).applyMatrix4(_m);
       }
       this.swarm.update(dt, local);
@@ -178,7 +176,7 @@ export class Floor {
   }
 }
 
-/** The particle fish: a rest shape, and a spring simulation on the CPU. */
+/** The particle mark: a rest shape, and a spring simulation on the CPU. */
 class Swarm {
   readonly points: THREE.Points;
   readonly material: THREE.ShaderMaterial;
@@ -200,9 +198,14 @@ class Swarm {
     this.kick = new Float32Array(n);
     const seeds = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      this.kick[i] = 0.6 + Math.random() * 0.8;
+      this.kick[i] = 0.5 + Math.random() * 1.0;
       seeds[i * 3] = Math.random();
-      seeds[i * 3 + 1] = 0.45 + Math.random() * 0.9;
+      // Sizes: mostly fine dust, a long tail of larger grains, and a few
+      // big soft ones, so the mark reads as uneven, hand-strewn.
+      const r = Math.random();
+      let size = 0.3 + Math.pow(r, 2.6) * 1.5;
+      if (Math.random() < 0.035) size += 1.0 + Math.random() * 1.2;
+      seeds[i * 3 + 1] = size;
       seeds[i * 3 + 2] = Math.random();
     }
     this.geometry = new THREE.BufferGeometry();
@@ -214,7 +217,7 @@ class Swarm {
       uniforms: {
         uTime: { value: 0 },
         uPixelRatio: { value: pixelRatio },
-        uColor: { value: FISH_COLOR.clone() },
+        uColor: { value: MARK_COLOR.clone() },
         uBright: { value: 1 },
       },
       vertexShader: swarmVert,
@@ -257,7 +260,9 @@ class Swarm {
       let az = -SPRING * (pz - rest[k + 2]) - DAMPING * vel[k + 2];
 
       if (ray) {
-        // Distance from the particle to the ray; push out of the tube.
+        // Distance from the particle to the ray; push out of the tube with
+        // a smooth falloff, and swirl round it (radial x ray direction), so
+        // the cloud parts and eddies instead of bursting.
         const t = (px - ox) * dx + (py - oy) * dy + (pz - oz) * dz;
         if (t > 0) {
           const rx = px - (ox + dx * t);
@@ -266,11 +271,15 @@ class Swarm {
           const d2 = rx * rx + ry * ry + rz * rz;
           if (d2 < r2) {
             const d = Math.sqrt(d2) + 1e-4;
-            const fall = 1 - d / STIR_RADIUS;
-            const f = (STIR_FORCE * kick[i] * fall * fall) / d;
-            ax += rx * f;
-            ay += ry * f;
-            az += rz * f;
+            const u = 1 - d / STIR_RADIUS;
+            const fall = u * u * (3 - 2 * u);
+            const f = (STIR_FORCE * kick[i] * fall) / d;
+            const sx = ry * dz - rz * dy;
+            const sy = rz * dx - rx * dz;
+            const sz = rx * dy - ry * dx;
+            ax += rx * f + sx * f * SWIRL;
+            ay += ry * f + sy * f * SWIRL;
+            az += rz * f + sz * f * SWIRL;
           }
         }
       }

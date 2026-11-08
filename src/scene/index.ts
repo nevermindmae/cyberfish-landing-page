@@ -7,6 +7,7 @@ import { Sky } from './sky';
 import { Ocean, WAVE_CREST } from './ocean';
 import { Deep } from './deep';
 import { Floor } from './floor';
+import { loadLogoPoints } from './logo';
 import { Safety } from './safety';
 import { Water } from './water';
 import { COLORS, FISH_KEY_DIR, OCEAN, WATER_FOG_FAR, WATER_FOG_NEAR } from './palette';
@@ -91,9 +92,10 @@ export type Chapter = 'deep' | 'safety' | 'market' | 'team' | 'floor';
 const CHAPTERS: Chapter[] = ['deep', 'safety', 'market', 'team', 'floor'];
 const LEVEL_DROP = 16;
 const GLIDE_TIME = 3.2;
-/** Particles in the floor's fish. */
-const FISH_POINTS = 26000;
-const FISH_POINTS_MOBILE = 9000;
+/** Particles in the floor's mark, and how wide it hangs (world units). */
+const MARK_POINTS = 16000;
+const MARK_POINTS_MOBILE = 6000;
+const MARK_WIDTH = 5.2;
 /** Back to the top: the deep goes dark, then the sea returns out of black. */
 const SURFACE_FADE_OUT = 1.2;
 const SURFACE_FADE_IN = 2.6;
@@ -215,8 +217,9 @@ export class CyberScene {
   private fadeT = -1;
   /** The sea's fade back in after surfacing. */
   private risingT = -1;
-  /** The fish's surface as points, for the floor; sampled on first use. */
-  private fishCloud: Float32Array | null = null;
+  /** The mark as points, for the floor; loaded on first use and kept. */
+  private markCloud: Float32Array | null = null;
+  private markLoading: Promise<Float32Array> | null = null;
   /** True while a mouse has moved over the page (parallax and the floor's stir). */
   private pointerLive = false;
   /** The unit's GLB, loaded once and reused across visits to the deep. */
@@ -722,11 +725,16 @@ export class CyberScene {
       const floor = new Floor({
         mobile: this.opts.mobile,
         pixelRatio: this.renderer.getPixelRatio(),
-        fishPoints: this.fishPoints(),
+        cloud: this.markCloud,
       });
       this.rootFor('floor', floor.root);
       this.scene.add(floor.root);
       this.floor = floor;
+      if (!this.markCloud) {
+        void this.loadMark().then((cloud) => {
+          if (this.floor === floor) floor.setCloud(cloud);
+        });
+      }
     }
     // 'market' and 'team' are copy over the water alone.
   }
@@ -758,13 +766,16 @@ export class CyberScene {
     }
   }
 
-  /** The fish's surface as points, sampled once. */
-  private fishPoints(): Float32Array | null {
-    if (!this.fish) return null;
-    this.fishCloud ??= this.fish.samplePoints(
-      this.opts.mobile ? FISH_POINTS_MOBILE : FISH_POINTS,
-    );
-    return this.fishCloud;
+  /** The mark's points, loaded once (started early so the floor has them). */
+  private loadMark(): Promise<Float32Array> {
+    this.markLoading ??= loadLogoPoints(
+      this.opts.mobile ? MARK_POINTS_MOBILE : MARK_POINTS,
+      MARK_WIDTH,
+    ).then((cloud) => {
+      this.markCloud = cloud;
+      return cloud;
+    });
+    return this.markLoading;
   }
 
   /** Swap the sea out for the chapters below it. */
@@ -773,6 +784,8 @@ export class CyberScene {
     this.sky.mesh.visible = false;
     if (this.fish) this.fish.root.visible = false;
     this.renderer.setClearColor(DEEP_BG, 1);
+    // The floor's mark takes a moment to sample; start now, it is a long way down.
+    void this.loadMark().catch(() => undefined);
     // Rest where the dive left the lens (its own parallax is re-based here).
     this.deepBase.set(CAMERA_POS.x, this.camera.position.y, CAMERA_POS.z);
     // The sky environment is far too bright for metal 6 m under the sea, and

@@ -8,6 +8,7 @@ import './ui/deep.css';
 import './ui/safety.css';
 import './ui/market.css';
 import './ui/team.css';
+import './ui/floor.css';
 import { Loader } from './ui/loader';
 import { Sfx } from './ui/audio';
 import { Callout } from './ui/callout';
