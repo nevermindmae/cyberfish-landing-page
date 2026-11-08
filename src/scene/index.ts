@@ -28,6 +28,12 @@ const FOV_PORTRAIT = 48;
 /** The fish hovers this far above the camera, so it holds its place in frame. */
 const FISH_ABOVE_CAMERA = 1.2;
 /**
+ * During the dive, the fish's pool of light on the water fades out over
+ * this part of its run (0..1): gone before its rectangle can show in the
+ * water.
+ */
+const FISH_POOL_OUT = [0.02, 0.3] as const;
+/**
  * Where the fish hovers (y is set per frame from the camera height). Offset
  * to screen left in landscape, nose pointing right, leaving the right half
  * for the tagline.
@@ -618,9 +624,16 @@ export class CyberScene {
         const pos = quadBezier(d.fishStart, d.fishCtrl, d.hole, run, _v1);
         const dir = quadBezierTangent(d.fishStart, d.fishCtrl, d.hole, run, _v2);
         this.fish.steer(pos, dir);
-        // Its lights would blow out the water as it closes in.
+        // Its lights would blow out the water as it closes in. The pool is
+        // a rectangle of light: as the lens sinks and the fish comes down,
+        // its reflection shows as a hard-edged slab, so it goes out early
+        // in the run, leaving the belly light's round glow to carry the
+        // approach.
+        const poolFade = 1 - THREE.MathUtils.smoothstep(run, FISH_POOL_OUT[0], FISH_POOL_OUT[1]);
         for (const { light, intensity } of this.fishLights) {
-          light.intensity = intensity * (1 - run * 0.8);
+          const dim = 1 - run * 0.8;
+          light.intensity =
+            intensity * dim * (light instanceof THREE.RectAreaLight ? poolFade : 1);
         }
       }
       if (run >= 1) {
