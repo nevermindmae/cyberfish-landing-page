@@ -318,6 +318,15 @@ export class Fish {
     }
   }
 
+  /**
+   * How hard the body swims, 0..1 (1 is the hover's cruise). The safety
+   * chapter eases it down while the fish stops to look round. Ignored under
+   * reduced motion, where the body stays still.
+   */
+  set swim(amount: number) {
+    this.uniforms.uSwim.value = this.reducedMotion ? 0 : THREE.MathUtils.clamp(amount, 0, 1);
+  }
+
   /** `pointer` is in -1..1 (x right, y up); it is damped inside. */
   update(time: number, dt: number, pointer: THREE.Vector2): void {
     this.uniforms.uTime.value = time;

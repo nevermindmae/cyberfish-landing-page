@@ -713,7 +713,7 @@ export class CyberScene {
       this.scene.add(safety.root);
       this.safety = safety;
       if (this.fish) {
-        safety.update(this.time, this.camera, this.fish);
+        safety.update(1 / 60, this.camera, this.fish);
         this.fish.update(this.time, 1 / 60, this.pointer);
         this.fish.root.visible = true;
         for (const { light, intensity } of this.fishLights) light.intensity = intensity;
@@ -752,6 +752,7 @@ export class CyberScene {
     this.safety = null;
     if (this.fish) {
       this.fish.steer(null);
+      this.fish.swim = 1;
       this.fish.root.visible = false;
     }
   }
@@ -837,7 +838,7 @@ export class CyberScene {
 
     this.water?.update(this.time, base, descent, this.levelOf('floor'));
     if (this.safety && this.fish) {
-      this.safety.update(this.time, this.camera, this.fish);
+      this.safety.update(dt, this.camera, this.fish);
       this.fish.update(this.time, dt, this.pointer);
     }
     if (deep) {
